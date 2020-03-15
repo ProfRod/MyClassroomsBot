@@ -1,0 +1,34 @@
+{
+  "name": "myclassroomsbot",
+  "bg-script": "classroom.js",
+  "version": "0.0.1",
+  "description": "MyClassroomsBot is a quick way to organize your classes and the communication with your students, using a Telegram bot",
+  "main": "classroom.js",
+  "nodejs": true,
+  "dependencies": {
+    "diskdb": "^0.1.17",
+    "lodash": "^4.17.15",
+    "node-telegram-bot-api": "^0.40.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ProfRod/MyClassroomsBot.git"
+  },
+  "keywords": [
+    "Classroom",
+    "Classes",
+    "Teacher",
+    "Student",
+    "Bot"
+  ],
+  "author": "Rodrigo Martins Fernandes",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/ProfRod/MyClassroomsBot/issues"
+  },
+  "homepage": "https://github.com/ProfRod/MyClassroomsBot#readme"
+}
