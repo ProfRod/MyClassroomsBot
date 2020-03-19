@@ -1,0 +1,18 @@
+[
+  {"maincmd":"/new3",
+   "permission":"teacher",
+   "command":"EC",
+   "command_title":"Edit Classroom <b>$filterObj</b> profile:",
+   "dbname":"classrooms",
+   "filterObj":"id",
+   "successMsg":"Classroom <b>$filterObj</b> profile successfully updated.",
+   "failMsg":"Failed to update classroom <b>$filterObj</b> profile.",
+   "objects":[
+     {"name":"name", "button_label":"Classroom name"},
+     {"name":"institution", "button_label":"Institution"},
+     {"name":"course", "button_label":"Course"},
+     {"name":"description", "button_label":"Description"},
+     {"name":"hours", "button_label":"Hours"}
+   ]
+  }
+]
