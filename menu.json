@@ -1,18 +1,31 @@
 [
+  {"command":"PC",
+   "command_title":"What do you want to do?",
+   "menuItems":[
+     {"button_label":"Edit classroom profile", "actionCommand":"EC"},
+     {"button_label":"Approve Students joining request", "actionFunction":"approveStd"},
+     {"button_label":"Pick another Classroom", "actionFunction":"pickClassroom"}
+   ]
+  },
   {"maincmd":"/new3",
    "permission":"teacher",
    "command":"EC",
    "command_title":"Edit Classroom <b>$filterObj</b> profile:",
    "dbname":"classrooms",
    "filterObj":"id",
-   "successMsg":"Classroom <b>$filterObj</b> profile successfully updated.",
+   "successMsg":"The profile of the Classroom <b>$filterObj</b> was successfully updated.",
    "failMsg":"Failed to update classroom <b>$filterObj</b> profile.",
    "objects":[
-     {"name":"name", "button_label":"Classroom name"},
-     {"name":"institution", "button_label":"Institution"},
-     {"name":"course", "button_label":"Course"},
-     {"name":"description", "button_label":"Description"},
-     {"name":"hours", "button_label":"Hours"}
+     {"name":"name", "button_label":"Classroom name",
+      "editMessage":"Please, enter the complete <b>name</b> of the classroom <b>$filterObj</b>:"},
+     {"name":"institution", "button_label":"Institution",
+      "editMessage":"Please, enter the <b>name of the Institution</b> where the classroom <b>$filterObj</b> is running:"},
+     {"name":"course", "button_label":"Course",
+      "editMessage":"Please, enter the complete <b>name of the course</b> that the classroom <b>$filterObj</b> belongs to:"},
+     {"name":"description", "button_label":"Description",
+      "editMessage":"Please, enter a <b>description</b> for the classroom <b>$filterObj</b>:"},
+     {"name":"hours", "button_label":"Hours",
+      "editMessage":"Please, enter the <b>total number of hours</b> of the classroom <b>$filterObj</b>:"}
    ]
   }
 ]

@@ -20,6 +20,9 @@ const MEMO = '\u{0001F4DD}';
 const FAIL = '\u{0001F44E}';
 const WEARY = '\u{0001F629}';
 const OCT = '\u{0001F6D1}';
+const PROHIBITED = '\u{0001F6AB}';
+const GRADCAP = '\u{0001F393}';
+const SCHOOL = '\u{0001F3EB}';
 
 // Schedule to run every 30 seconds
 setInterval(session_timeout_countdown, 30000);
@@ -268,7 +271,7 @@ bot.onText(/\/deladmin ([^\s\\]+)$/, (msg, match) => {
 /* Start of Teacher Users Commands */
 
 // List all classrooms registered in the bot
-bot.onText(/\/myclassrooms$/, (msg) => {
+bot.onText(/\/myclassroomsTxt$/, (msg) => {
 
     console.log('[' + new Date().toString() + '] Command /myclassrooms from username:@' + msg.from.username);
     var reply = "";
@@ -321,6 +324,123 @@ bot.onText(/\/myclassrooms$/, (msg) => {
 
     bot.sendMessage(msg.chat.id, reply);
 });
+
+
+function myClassroomsKb(classrooms, kbcols, kbrows, last_index)
+{
+  const nbuttons = kbcols * kbrows;
+  const next_index = last_index+nbuttons;
+  const prev_index = last_index-nbuttons;
+  var kbrd = []; var row = [];
+  if( classrooms.length >=0 )
+  {
+    var n=0; i=0;
+    classrooms.forEach(function(classroom){
+      if(++n>last_index && n<=next_index){
+        if(++i%kbcols){
+          row.push({
+            text: (classroom.role=="student"?GRADCAP:SCHOOL) + " " +
+		   classroom.name + " (" + classroom.id + ")",
+            callback_data: JSON.stringify({
+              'c': 'PC', // Pick a classroom
+              'i': classroom.id //classroom ID
+            })
+          });
+        } else{
+          row.push({
+            text: (classroom.role=="student"?GRADCAP:SCHOOL) + " " +
+		   classroom.name + " (" + classroom.id + ")",
+            callback_data: JSON.stringify({
+              'c': 'PC', // Pick a classroom
+              'i': classroom.id //classroom ID
+            })
+          });
+          kbrd.push(row);
+          row = [];
+        }
+      } 
+    });
+
+    if(i%kbcols) kbrd.push(row);
+
+    if(next_index>nbuttons){
+      kbrd.unshift([
+        {
+          text: 'less classrooms',
+          callback_data: JSON.stringify({
+            'c': 'MPC', //ask for less classrooms
+            'n': prev_index //prev index of the list to show the keyboard
+          })
+        }
+      ]);
+    }
+
+    if(n>next_index){
+      kbrd.push([
+        {
+          text: 'more classrooms',
+          callback_data: JSON.stringify({
+            'c': 'MPC', //ask for more classrooms 
+            'n': next_index //next index of the list to show the keyboard
+          })
+        }
+      ]);
+    }
+  }
+
+  console.log('keyboard=' + JSON.stringify(kbrd));
+  return(kbrd);
+}
+
+function getMyClassrooms(msg){
+  var myclassrooms = []; var query=""; var classrooms=[];
+
+  if( isteacherUser(msg.chat.username) )
+  {
+    query = { teacher:msg.chat.username, status:"open" };
+    classrooms = db.classrooms.find(query);
+
+    if( classrooms.length )
+    {
+      classrooms.forEach(function(classroom){
+        if(classroom.teachers.length)
+          myclassrooms.push( {"role":"teacher", "id":classroom.id, "name":classroom.name} );
+      });
+    }
+  }
+  if( isStudentUser(msg.chat.username) )
+  {
+    query = { student:msg.chat.username, status:"open" }
+    classrooms = db.classrooms.find(query);
+
+    if( classrooms.length )
+    {
+      classrooms.forEach(function(classroom){
+        if(classroom.students.length)
+          myclassrooms.push( {"role":"student", "id":classroom.id, "name":classroom.name} );
+      });
+    }
+  }
+  return myclassrooms;
+}
+
+function pickClassroom(msg){
+  var myclassrooms = getMyClassrooms(msg);
+  var kb = myClassroomsKb(myclassrooms,1,4,0);
+  var opt = { reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
+  var replyTxt = "Which one of your classrooms do you want?";
+  bot.sendMessage(msg.chat.id, replyTxt, opt).catch(function (err) {
+    if (err)
+     console.log("sendMessage error: " + err);
+  });
+}
+
+// Pick one the users' classrooms registered in the bot
+bot.onText(/\/myclassrooms$/, (msg) => {
+  console.log('[' + new Date().toString() + '] Command /myclassrooms from username:@' + msg.from.username);
+  pickClassroom(msg);
+});
+
 
 // Ask teacher to Join to a classroom 
 bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
@@ -612,23 +732,17 @@ function addFile(msg, type){
     var newfile = Object.assign({}, session, attach, {description:"", type:type}, (({message_id}) => ({message_id}))(msg));
     delete newfile.timeout;
     console.log("newfile =<"+JSON.stringify(newfile)+">");
-    console.log("AKI 0");
     db.references.save(newfile);
-    console.log("AKI 1");
 
     var kb = dismiss_kb(msg.from.username, msg.message_id);
-    console.log("AKI 2");
     if(type == "url"){
-    console.log("AKI 2.1");
       var opt = {reply_to_message_id: msg.message_id, parse_mode: "MarkdownV2", reply_markup:{inline_keyboard: kb, force_reply: true, selective: true} };
       var urlTxt = escURL("Write a description for the url (", msg.text, "). If you do not want to write a description, just click the button Dismiss, so the reference (url link) will be saved without a description.");
     } else {
-    console.log("AKI 2.2");
       var opt = {reply_to_message_id: msg.message_id,
 	         reply_markup:{inline_keyboard: kb, force_reply: true, selective: true} };
       var urlTxt = "Write a description for the reference. If you do not want to write a description, just click the button Dismiss, so the reference will be saved without a description."
     }
-    console.log("AKI 3.0");
 
     bot.sendMessage(msg.chat.id, urlTxt, opt).catch(function (err) {
       if (err)
@@ -766,17 +880,20 @@ bot.onText(/\/addref$/, (msg, match) => {
   }
 });
 
-
-// Approve students request to join classroom
-bot.onText(/\/approve$/, (msg, match) => {
-
+function approveStudents(msg){
   if(isteacherUser(msg.chat.username)){
-    var kb = choose_classroom_kb(msg.from.username, "s", 0 );
+    var kb = choose_classroom_kb(msg.chat.username, "s", 0 );
     var kbjson = { reply_markup: { inline_keyboard: kb }};
     var kbtext = "Choose a Classroom to Approve Students Membership";
 
     bot.sendMessage(msg.chat.id, kbtext, kbjson);
   }
+}
+
+
+// Approve students request to join classroom
+bot.onText(/\/approve$/, (msg, match) => {
+  approveStudents(msg);
 });
 
 
@@ -845,7 +962,7 @@ bot.onText(/\/new ([^\s\\]+)$/, (msg, match) => {
     if( exist == undefined )
     {
       db.classrooms.save({id:match[1], name:"", institution:"",
-	                  course:"", description:"", hours:"",
+	                  course:"", description:"", hours:"", status:"open",
                           teachers:[{teacher:msg.chat.username, status:"member"}],
                           students:[]});
       reply = WINKING_FACE+ " Classroom <b>" + match[1] + "</b> successfully created. Please configure the classroom profile";
@@ -1286,6 +1403,11 @@ bot.on('callback_query', (callbackQuery) => {
       bot.sendMessage(message.chat.id, ret.reply+"\nAny doubts contact Admin");
     }
   }
+  else if(data.c == "MPC"){ //list more classrooms to Pick one
+    var myclassrooms = getMyClassrooms(message);
+    var kb = myClassroomsKb(myclassrooms,1,4,data.n);
+    editMRM(message.chat.id, message.message_id, kb);
+  }
   else if(data.c == "ms"){ //list more students for some context
     var kb = choose_student_kb(message.chat.username, data.i, data.n );
     editMRM(message.chat.id, message.message_id, kb);
@@ -1385,24 +1507,101 @@ bot.on('callback_query', (callbackQuery) => {
     set_edit_classroom_session({teacher:message.chat.username,
                                 classroom:data.i, timeout:2});
     console.log("edit_classroom_session=<"+JSON.stringify(edit_classroom_session)+">");
+  } else if('AF' in data){
+    console.log("Function "+data.AF+"();");
+    //console.log(Object.keys(global));
+    //Object.global[data.AF]();
+    var sdata = JSON.parse(JSON.stringify(data));
+    delete sdata.c;
+    funcs[data.AF](message,sdata);
   }
 
   menu.forEach(function(cmd,i,o){
-    cmd.objects.forEach(function(obj,i,o){
-      if(data.c == cmd.command+i){
+    if('objects' in cmd){//Edit field in a database, as configured in menu.json
+      cmd.objects.forEach(function(obj,i,o){
+        if(data.c == cmd.command+i){
+          var sdata = JSON.parse(JSON.stringify(data));
+          delete sdata.c;
+          set_menu_session({username:message.chat.username, cmd:cmd.command,
+                            objpos:i, timeout:2, data:sdata});
+          bot.sendMessage(message.chat.id,
+		          MEMO + " " +  obj.editMessage.replace(/\$filterObj/,data.i),
+		          {parse_mode: "HTML"}).catch(function (err) {
+            if (err)
+              console.log("sendMessage error: " + err);
+          });
+        }
+      });
+      if(data.c == cmd.command){
+        var sdata = JSON.parse(JSON.stringify(data));
+        delete sdata.c;
+        var kb = menu_kb(cmd.command, sdata);
+        var opt = {parse_mode: "HTML", reply_to_message_id: message.message_id, reply_markup: { inline_keyboard: kb }};
+        var dbData="";
+        var query = {[cmd.filterObj]:data.i};
+        var item = db[cmd.dbname].findOne(query);
+        cmd.objects.forEach(function(obj){
+          dbData += "<b>"+obj.name+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
+        });
+        bot.sendMessage(message.chat.id,
+                        cmd.command_title.replace(/\$filterObj/,data.i)+"\n"+dbData,
+                        opt).catch(function (err) {
+          if (err)
+            console.log("sendMessage error: " + err);
+        });
+      }
+    }
+    if('menuItems' in cmd){//Choose a menu item field, as configured in menu.json
+      if(data.c == cmd.command){
         var sdata = JSON.parse(JSON.stringify(data));
         delete sdata.c;
         set_menu_session({username:message.chat.username, cmd:cmd.command,
-                          objpos:i, timeout:2, data:sdata});
-        //var kb = menu_kb(cmd.command, {'i': data.i});
-        editMT(message.chat.id, message.message_id, "Enter "+obj.name+":");
-        //editMRM(message.chat.id, message.message_id, kb);
+                          timeout:2, data:sdata});
+        reply_menuItems(message,cmd,sdata);
       }
-    });
+    }
   });
 
 });
 
+
+var funcs = {
+  pickClassroom: function(param){ console.log("pickClassroom"); pickClassroom(param); },
+  approveStd: function(msg,data){ console.log("approveStd"); approveStd(msg,data); }
+};
+
+
+function approveStd(msg, data){
+  var kb = choose_student_kb(msg.chat.username, data.i , 0 );
+  var kbtext = "Please approve Students Membership at " + data.i + " Classroom";
+
+  editMT(msg.chat.id, msg.message_id, kbtext);
+  editMRM(msg.chat.id, msg.message_id, kb);
+}
+
+
+function reply_menuItems(msg, cmd, data){
+var kbrd = [];
+var actionCommand = {};
+var actionFunction = {};
+var cb_data = {};
+
+  cmd.menuItems.forEach(function(item,i){
+    actionCommand = ('actionCommand' in item)?{"c":item.actionCommand}:{};
+    actionFunction = ('actionFunction' in item)?{"AF":item.actionFunction}:{};
+    cb_data = Object.assign({}, actionCommand, actionFunction, data);
+    kbrd.push([{ text: item.button_label,
+       callback_data: JSON.stringify(cb_data)
+    }]);
+  });
+  console.log("kbrd:"+JSON.stringify(kbrd));
+
+  var opt = {parse_mode: "HTML", reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kbrd }};
+  bot.sendMessage(msg.chat.id, cmd.command_title, opt).catch(function (err) {
+    if (err)
+      console.log("sendMessage error: " + err);
+  });
+}
 
 function editMRM(chat_id, message_id, kb){
   bot.editMessageReplyMarkup({
@@ -1462,7 +1661,8 @@ var ind = menu_session.findIndex(u => u.username == session.username);
 function reply_main_cmd(msg){
   console.log("reply_main_cmd()\n");
   menu.forEach(function(item,i,o){
-    var found = item.maincmd.match(msg.text);
+    var found = null;
+    if ('maincmd' in item) found = item.maincmd.match(msg.text);
     if (found != null)
       console.log("found=<"+JSON.stringify(found)+">");
     else
@@ -1474,6 +1674,7 @@ function reply_main_cmd(msg){
 function reply_menu(msg){
   var mi = menu_session.findIndex(m => m.username == msg.chat.username);
   var replyTxt = "Your answer took too long. Please start the command again";
+  var title = "";
 
   if(mi>=0){
     var cmd = menu_session[mi].cmd;
@@ -1482,7 +1683,6 @@ function reply_menu(msg){
     var menu_cmd = menu.find(m => m.command == cmd);
     if(menu_cmd != undefined)
     {
-      var title = MEMO+" "+menu_cmd.command_title.replace(/\$filterObj/,data.i);
       var dbname = menu_cmd.dbname;
       var query = {[menu_cmd.filterObj]:data.i};
       var item = db[dbname].findOne(query);
@@ -1496,7 +1696,13 @@ function reply_menu(msg){
           replyTxt = WINKING_FACE+" "+menu_cmd.successMsg.replace(/\$filterObj/,data.i);
         else
           replyTxt = FAIL+" "+menu_cmd.failMsg.replace(/\$filterObj/,data.i);
+
+        item = db[dbname].findOne(query);
+        menu_cmd.objects.forEach(function(obj){
+          title += "<b>"+obj.name+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
+        });
       }
+      title += MEMO+" "+menu_cmd.command_title.replace(/\$filterObj/,data.i);
     }
     menu_session.splice(mi,1);
     var kb = menu_kb(cmd, {'i': data.i});

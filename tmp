@@ -1,0 +1,23 @@
+keyboard=[
+
+[[
+{"text":"Engenharia de Sistemas (2020Sist) as teacher","callback_data":"{\"c\":\"PC\",\"i\":\"2020Sist\"}"},
+
+{"text":"Eletrônica de Potência (20201ELEPOT) as teacher","callback_data":"{\"c\":\"PC\",\"i\":\"20201ELEPOT\"}"},
+
+{"text":"Eletrônica de potência (qwlkqw) as teacher","callback_data":"{\"c\":\"PC\",\"i\":\"qwlkqw\"}"}
+]],
+
+[[
+{"text":"Engenharia de Sistemas (2020Sist) as teacher","callback_data":"{\"c\":\"PC\",\"i\":\"2020Sist\"}"},
+
+{"text":"Eletrônica de Potência (20201ELEPOT) as teacher","callback_data":"{\"c\":\"PC\",\"i\":\"20201ELEPOT\"}"},
+
+{"text":"Eletrônica de potência (qwlkqw) as teacher","callback_data":"{\"c\":\"PC\",\"i\":\"qwlkqw\"}"}
+
+]],
+
+[{"text":"more classrooms","callback_data":"{\"c\":\"MPC\",\"n\":3}"}]
+
+]
+
