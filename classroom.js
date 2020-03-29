@@ -10,7 +10,7 @@ const config = require('./config.json'),
 // Instantiate Telegram Bot
 const bot = new TelegramBot(config.token, {polling: true});
 const apiurl = "";
-const helpkeyboard = {"reply_markup": {"keyboard": [["/help"],["/myclassrooms","/ref"]],"one_time_keyboard":true}};
+const helpkeyboard = {"reply_markup": {"keyboard": [["/help"],["/myclassrooms","/ref"],["/join"]],"one_time_keyboard":true}};
 const teacherhelpkeyboard = {"reply_markup": {"keyboard": [["/help"],["/myclassrooms"],["/approve"],["/addref","/ref"]],"one_time_keyboard":true}};
 const algorithm = 'aes256';
 var upload_files_session = [];
@@ -45,7 +45,7 @@ function isStudentUser(username)
   var isStudentUser = db.studentusers.find({username:username});
   if(isStudentUser.length) return true;
 
-  if(isteacherUser(username)) return true; else return isAdmin(username);
+  return false;//if(isteacherUser(username)) return true; else return isAdmin(username);
 }
 
 function isteacherUser(username)
@@ -326,6 +326,129 @@ bot.onText(/\/myclassroomsTxt$/, (msg) => {
 });
 
 
+function getItemsArray(msg, data){
+  var ArrayItems = []; var query=""; 
+
+  var mi = menu_session.findIndex(m => m.username == msg.chat.username);
+  var replyTxt = "Your answer took too long. Please start the command again";
+  var title = "";
+  var opt = {parse_mode: "HTML"};
+
+  if(mi>=0){
+    var cmd = menu_session[mi].cmd;
+    var sdata = menu_session[mi].data;
+    console.log("cmd: <"+JSON.stringify(cmd)+">");
+    console.log("menu_session_data: <"+JSON.stringify(sdata)+">");
+    console.log("data: <"+JSON.stringify(data)+">");
+    var menu_cmd = menu.find(m => m.command == cmd);
+    console.log("menu_cmd: <"+JSON.stringify(menu_cmd)+">");
+    if(menu_cmd != undefined)
+    {
+      var dbname = menu_cmd.dbname;
+      var txtKey = menu_cmd.ArrayMainKey;
+    console.log("txtKey: <"+JSON.stringify(txtKey)+">");
+      var dbId = menu_cmd.dbKeyFilter;
+      var objArray = menu_cmd.objArray;
+      var actionFunc = data.AF;
+      var menuitem = menu_cmd.menuItems.find( item=> item.actionFunction == actionFunc);
+      replyTxt = menuitem.actionTxt;
+      callbackCMD = menuitem.callbackCMD;
+    console.log("replyTxt: <"+JSON.stringify(replyTxt)+">");
+      var query = {[dbId]:data.i};
+      var item = db[dbname].findOne(query);
+      if( item != undefined ){
+        var ArrayItems = item[objArray];
+    console.log("ArrayItems: <"+JSON.stringify(ArrayItems)+">");
+        var kb = myArrayItemsKb(ArrayItems, txtKey, item[dbId], callbackCMD,  2, 3, 0);
+    console.log("kb: <"+JSON.stringify(kb)+">");
+        //opt = {parse_mode: "HTML", reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
+        opt = {parse_mode: "HTML", reply_markup: { inline_keyboard: kb }};
+      }
+    }
+  }
+  
+  bot.sendMessage(msg.chat.id, replyTxt, opt).catch(function (err) {
+    if (err)
+      console.log("sendMessage error: " + err);
+  });
+}
+
+function myArrayItemsKb(ArrayItems, txtKey, dbId, callbackCMD,  kbcols, kbrows, last_index)
+{
+  const nbuttons = kbcols * kbrows;
+  const next_index = last_index+nbuttons;
+  const prev_index = last_index-nbuttons;
+  var kbrd = []; var row = [];
+  if( ArrayItems.length >=0 )
+  {
+    console.log("AKI B1");
+    var n=0; i=0;
+    var nlen = ArrayItems.length;
+    for(n=last_index; (n<next_index) && (n<nlen); n++){
+      console.log("AKI B2");
+      if(++i%kbcols){
+        row.push({
+          text: (n+1)+": "+ArrayItems[n][txtKey],
+          callback_data: JSON.stringify({
+            'c': callbackCMD, // command to process the Array Item
+            'i': dbId, // Database register filter
+            'ap': n // ArrayItem Position to be processed by action Function
+          })
+        });
+      } else{
+        row.push({
+          text: (n+1)+": "+ArrayItems[n][txtKey],
+          callback_data: JSON.stringify({
+            'c': callbackCMD, // command to process the Array Item
+            'i': dbId, // Database register filter
+            'ap': n // ArrayItem Position to be processed by action Function
+          })
+        });
+        kbrd.push(row);
+        row = [];
+      }
+    }
+
+    console.log("AKI B3");
+    if(i%kbcols) kbrd.push(row);
+
+    console.log("AKI B4");
+    if(next_index>nbuttons){
+      kbrd.unshift([
+        {
+          text: 'less ',
+          callback_data: JSON.stringify({
+            'c': 'MIT', //ask for less items
+            'i': dbId, // Database register filter
+            'CB': callbackCMD, // Action Function to process the Array Item
+            'n': prev_index //prev index of the list to show the keyboard
+          })
+        }
+      ]);
+    }
+
+    console.log("AKI B5");
+    if(n>=next_index){
+      kbrd.push([
+        {
+          text: 'more ',
+          callback_data: JSON.stringify({
+            'c': 'MIT', //ask for more items 
+            'i': dbId, // Database register filter
+            'CB': callbackCMD, // Action Function to process the Array Item
+            'n': next_index //next index of the list to show the keyboard
+          })
+        }
+      ]);
+    }
+  }
+  console.log("AKI B6");
+
+  console.log('keyboard=' + JSON.stringify(kbrd));
+  return(kbrd);
+}
+
+
 function myClassroomsKb(classrooms, kbcols, kbrows, last_index)
 {
   const nbuttons = kbcols * kbrows;
@@ -424,6 +547,38 @@ function getMyClassrooms(msg){
   return myclassrooms;
 }
 
+function pickItemArr(msg,data){
+  var mi = menu_session.findIndex(m => m.username == msg.chat.username);
+  var replyTxt = "Your answer took too long. Please start the command again";
+  var title = "";
+  var opt = {};
+
+  if(mi>=0){
+    var cmd = menu_session[mi].cmd;
+    var pos = menu_session[mi].objpos;
+    var data = menu_session[mi].data;
+    var menu_cmd = menu.find(m => m.command == cmd);
+    if(menu_cmd != undefined)
+    {
+      var dbname = menu_cmd.dbname;
+      var query = {[menu_cmd.dbKeyFilter]:data.i,
+	           [menu_cmd.usernameKeyFilter]:msg.chat.username
+                  };
+      var item = db[dbname].findOne(query);
+      if(item != undefined)
+      {
+        //var kb = myItemsArrKb(item[objArray],1,4,0);
+        //var opt = { reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
+        var replyTxt = "Which one of your classrooms do you want?";
+      }
+    }
+  }
+  bot.sendMessage(msg.chat.id, replyTxt, opt).catch(function (err) {
+    if (err)
+     console.log("sendMessage error: " + err);
+  });
+}
+
 function pickClassroom(msg){
   var myclassrooms = getMyClassrooms(msg);
   var kb = myClassroomsKb(myclassrooms,1,4,0);
@@ -447,6 +602,22 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
 
   console.log('[' + new Date().toString() + '] Command /join ' + match[1] + ' from username:@' + msg.from.username);
   var reply = "Invalid Command. Type /help for more info.";
+  var opt = {parse_mode: "HTML"};
+  console.log("AKI 1");
+  var kb = [
+    [{ text: 'Complete your personal profile',
+       callback_data: JSON.stringify({
+         'c': 'EP', //command 
+         'i': msg.chat.username //username
+       })
+     }],
+     [{ text: 'Enter into one of your classrooms',
+       callback_data: JSON.stringify({
+         'AF': 'pickClassroom', //command approve
+         'i': msg.chat.username //classroom ID
+       })
+    }]];
+  console.log("AKI 2");
 
   // Check if classroom id exists
   var query = {
@@ -454,9 +625,17 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
   }
   var classroom = db.classrooms.findOne(query);
 
+  if( !isStudentUser(msg.chat.username) )
+  {
+    db.studentusers.save({username:msg.chat.username, name:"", surname:"",
+                              phone:"", email:"", status:"request"});
+  } 
+
+  console.log("AKI 3");
   if( classroom != undefined )
   {
-    var student_index = classroom.students.findIndex(s => s.student == msg.from.username);
+  console.log("AKI 3.1");
+    var student_index = classroom.students.findIndex(s => s.student == msg.chat.username);
 
     if( student_index>=0 && classroom.students[student_index].status != "exited")
     {
@@ -473,19 +652,23 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
         classroom_updated.students[student_index].status = "request";
       } else
       {
-        classroom_updated.students.push({student:msg.from.username, status:"request"});
+        classroom_updated.students.push({student:msg.chat.username, status:"request"});
       }
+  console.log("AKI 3.2");
 
       var options = {
         multi: false,
         upsert: false
       };
       var res = db.classrooms.update({_id:classroom._id}, classroom_updated, options);
-      if(res.updated != 0)
+      if(res.updated != 0){
         reply = "Request for joining classroom " + classroom.name +
                 " (id: " + classroom.id + ") sent successfully. Wait for teacher approval\n";
+        opt = { parse_mode: "HTML", reply_to_message_id: msg.message_id,
+                reply_markup: { inline_keyboard: kb }};
+      }
       else
-        reply = "Failed to send the joining request from student @" + msg.from.username +
+        reply = "Failed to send the joining request from student @" + msg.chat.username +
                 " to classroom " + classroom.name + " (id: " + classroom.id + ")\n" + 
                 "Please, try again or contact Admin.";
 
@@ -496,9 +679,16 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
   }
   else
   {
+  console.log("AKI 3.2");
     reply = "Invalid Classroom id: " + match[1] + "\n";
   }
-  bot.sendMessage(msg.chat.id, reply);
+
+
+  console.log("AKI 4");
+  bot.sendMessage(msg.chat.id, reply, opt).catch(function (err) {
+    if (err)
+      console.log("sendMessage error: " + err);
+  });
 });
 
 // Ask teacher to Join to a classroom 
@@ -808,37 +998,17 @@ bot.on("message", msg => {
     console.log("type == text");
     reply_main_cmd(msg);
     reply_menu(msg);
-    if(msg.text.match(/sonho/g))
-    {
-      var kbtext = "Estuda muito para conseguir realizar seu sonho. Persevere e nunca desista!!";
-      bot.sendMessage(msg.chat.id, kbtext).catch(function (err) {
-        if (err) console.log("sendMessage error: " + err);
-      });
-    }
-    if(msg.text.match(/corona/g))
-    {
-      var kbtext = "Febre, dificuldade de respirar, dor de garganta, cansaço e tosse seca são sintomas comuns da gripe, mas também do novo coronavírus (Covid-19). Se você apresentar esses sintomas iniciais do vírus, a orientação do Ministério da Saúde é ligar no número 136 para buscar informações do que fazer ou procurar uma Unidade Básica de Saúde (UBS)."
-      bot.sendMessage(msg.chat.id, kbtext).catch(function (err) {
-        if (err) console.log("sendMessage error: " + err);
-      });
-    }
-    if(msg.text.match(/saudade/g))
-    {
-      var kbtext = "Chama o papai para rezar uma oração e dormir com você!";
-      bot.sendMessage(msg.chat.id, kbtext).catch(function (err) {
-        if (err) console.log("sendMessage error: " + err);
-      });
-    }
+
     if( isteacherUser(msg.chat.username) ){
       var doc_id = ( msg.message_id - 2 );
-      var doc = db.references.findOne({username: msg.chat.username, message_id:doc_id});
+      var doc = db.references.findOne({teacher: msg.chat.username, message_id:doc_id});
 
       if( doc == undefined ){
         var ind = upload_files_session.findIndex(u => u.teacher == msg.chat.username);
         console.log("Session:<"+JSON.stringify(upload_files_session[ind])+">\n");
         if(ind>=0 && 'hasfile' in upload_files_session[ind]){
           doc_id = upload_files_session[ind].message_id;
-          doc = db.references.findOne({username: msg.chat.username, message_id:doc_id});
+          doc = db.references.findOne({teacher: msg.chat.username, message_id:doc_id});
         }
       }
 
@@ -912,6 +1082,18 @@ function menu_kb(command, args){
             }]
     );
   });
+  if('prevMenuButton' in cmd){
+    cmd.prevMenuButton.forEach(function(obj,i,o){
+      if('actionCommand' in obj)
+        cd = Object.assign({}, {'c': obj.actionCommand}, args);
+      else if('actionFunction' in obj)
+        cd = Object.assign({}, {'AF': obj.actionFunction}, args);
+      else cd = "";
+      if(cd!="") kb.push([{ text: obj.button_label,
+                         callback_data: JSON.stringify(cd)
+                         }]);
+    });
+  }
   console.log("menu_kb:<" + JSON.stringify(kb) + ">");
   return(kb);
 }
@@ -964,7 +1146,7 @@ bot.onText(/\/new ([^\s\\]+)$/, (msg, match) => {
       db.classrooms.save({id:match[1], name:"", institution:"",
 	                  course:"", description:"", hours:"", status:"open",
                           teachers:[{teacher:msg.chat.username, status:"member"}],
-                          students:[]});
+                          students:[], classes:[]});
       reply = WINKING_FACE+ " Classroom <b>" + match[1] + "</b> successfully created. Please configure the classroom profile";
       //var kb = new_classroom_kb(match[1]);
       var kb = menu_kb("EC", {'i': match[1]});
@@ -1525,7 +1707,7 @@ bot.on('callback_query', (callbackQuery) => {
           set_menu_session({username:message.chat.username, cmd:cmd.command,
                             objpos:i, timeout:2, data:sdata});
           bot.sendMessage(message.chat.id,
-		          MEMO + " " +  obj.editMessage.replace(/\$filterObj/,data.i),
+		          MEMO + " " +  obj.editMessage.replace(/\$dbKeyFilter/,data.i),
 		          {parse_mode: "HTML"}).catch(function (err) {
             if (err)
               console.log("sendMessage error: " + err);
@@ -1538,13 +1720,18 @@ bot.on('callback_query', (callbackQuery) => {
         var kb = menu_kb(cmd.command, sdata);
         var opt = {parse_mode: "HTML", reply_to_message_id: message.message_id, reply_markup: { inline_keyboard: kb }};
         var dbData="";
-        var query = {[cmd.filterObj]:data.i};
-        var item = db[cmd.dbname].findOne(query);
+        var query = {[cmd.dbKeyFilter]:data.i};
+        var item2 = db[cmd.dbname].findOne(query);
+        if('objArray' in cmd){
+    console.log("item2: <"+JSON.stringify(item2)+">");
+	  var item = item2[cmd.objArray][data.ap];
+	} else var item = item2;
+    console.log("item: <"+JSON.stringify(item)+">");
         cmd.objects.forEach(function(obj){
-          dbData += "<b>"+obj.name+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
+          dbData += "<b>"+obj.button_label+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
         });
         bot.sendMessage(message.chat.id,
-                        cmd.command_title.replace(/\$filterObj/,data.i)+"\n"+dbData,
+                        cmd.command_title.replace(/\$dbKeyFilter/,data.i)+"\n"+dbData,
                         opt).catch(function (err) {
           if (err)
             console.log("sendMessage error: " + err);
@@ -1567,7 +1754,10 @@ bot.on('callback_query', (callbackQuery) => {
 
 var funcs = {
   pickClassroom: function(param){ console.log("pickClassroom"); pickClassroom(param); },
-  approveStd: function(msg,data){ console.log("approveStd"); approveStd(msg,data); }
+  approveStd: function(msg,data){ console.log("approveStd"); approveStd(msg,data); },
+  newItemArrCB: function(msg,data){ console.log("newItemArrCB"); newItemArrCB(msg,data); },
+  getItemsArray: function(msg,data){ console.log("getItemsArray"); getItemsArray(msg,data); }
+
 };
 
 
@@ -1662,7 +1852,7 @@ function reply_main_cmd(msg){
   console.log("reply_main_cmd()\n");
   menu.forEach(function(item,i,o){
     var found = null;
-    if ('maincmd' in item) found = item.maincmd.match(msg.text);
+    //if ('maincmd' in item) found = item.maincmd.match(msg.text);
     if (found != null)
       console.log("found=<"+JSON.stringify(found)+">");
     else
@@ -1684,28 +1874,41 @@ function reply_menu(msg){
     if(menu_cmd != undefined)
     {
       var dbname = menu_cmd.dbname;
-      var query = {[menu_cmd.filterObj]:data.i};
+      var query = {[menu_cmd.dbKeyFilter]:data.i};
       var item = db[dbname].findOne(query);
       if(item != undefined)
       {
         var newitem = JSON.parse(JSON.stringify(item));
-        newitem[menu_cmd.objects[pos].name] = msg.text;
+
+        if('objArray' in menu_cmd){
+	  newitem[menu_cmd.objArray][data.ap][menu_cmd.objects[pos].name] = msg.text;
+	} else {
+          newitem[menu_cmd.objects[pos].name] = msg.text;
+	}
         var options = { multi: false, upsert: false };
         var res = db[dbname].update({_id:item._id}, newitem, options);
         if(res.updated != 0)
-          replyTxt = WINKING_FACE+" "+menu_cmd.successMsg.replace(/\$filterObj/,data.i);
+          replyTxt = WINKING_FACE+" "+menu_cmd.successMsg.replace(/\$dbKeyFilter/,data.i);
         else
-          replyTxt = FAIL+" "+menu_cmd.failMsg.replace(/\$filterObj/,data.i);
+          replyTxt = FAIL+" "+menu_cmd.failMsg.replace(/\$dbKeyFilter/,data.i);
 
         item = db[dbname].findOne(query);
         menu_cmd.objects.forEach(function(obj){
-          title += "<b>"+obj.name+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
+        if('objArray' in menu_cmd){
+          title += "<b>"+obj.button_label+":</b> " + ((item[menu_cmd.objArray][data.ap][obj.name]!="")?item[menu_cmd.objArray][data.ap][obj.name]:PROHIBITED) +"\n";
+	} else {
+          title += "<b>"+obj.button_label+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
+	}
         });
       }
-      title += MEMO+" "+menu_cmd.command_title.replace(/\$filterObj/,data.i);
+      title += MEMO+" "+menu_cmd.command_title.replace(/\$dbKeyFilter/,data.i);
     }
     menu_session.splice(mi,1);
-    var kb = menu_kb(cmd, {'i': data.i});
+    if('objArray' in menu_cmd){
+      var kb = menu_kb(cmd, {'i': data.i, 'ap':data.ap});
+    } else {
+      var kb = menu_kb(cmd, {'i': data.i});
+    }
     
     //editMRM(msg.chat.id, msg.message_id, kb);
 
@@ -1714,6 +1917,111 @@ function reply_menu(msg){
       if (err)
         console.log("sendMessage error: " + err);
     });
+  }
+}
+
+
+function newItemArrCB(msg,data)
+{
+  var mi = menu_session.findIndex(m => m.username == msg.chat.username);
+  var replyTxt = "Your answer took too long. Please start the command again";
+  var title = "";
+
+  if(mi>=0){
+    var cmd = menu_session[mi].cmd;
+    var sdata = menu_session[mi].data;
+    console.log("menu_session_data: <"+JSON.stringify(sdata)+">");
+    console.log("data: <"+JSON.stringify(data)+">");
+    var menu_cmd = menu.find(m => m.command == cmd);
+    if(menu_cmd != undefined)
+    {
+      var ret = newItemArr(msg, sdata, menu_cmd);
+    }
+  }
+
+  var opt = {parse_mode: "HTML", reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
+  bot.sendMessage(msg.chat.id, replyTxt + "\n" + title, opt).catch(function (err) {
+    if (err)
+      console.log("sendMessage error: " + err);
+  });
+}
+
+
+function newItemArr(msg, sdata, menu_cmd)
+{
+var dbname = menu_cmd.dbname;
+var queryUsername = {[menu_cmd.usernameKeyFilter]:msg.chat.username};
+var DbKey = menu_cmd.dbKeyFilter;
+var DbKeyValue = sdata.i;
+var objArray = menu_cmd.objArray;
+var keysArray = menu_cmd.keysArray;
+
+var newItem = keysArray.reduce(function(acc, curr) {
+	        acc[curr] = '';
+	        return acc;
+              }, {});
+
+var reply = "";
+var res = {};
+
+  var mi = menu_cmd.menuItems.find(m=>m.actionFunction == "newItemArrCB");
+  reply = (mi>0)?mi.successMsg:"Failed to add New item. Try again or contact the Admin";
+  var ret = {updated:0, reply:reply};
+
+  console.log(JSON.stringify(newItem));
+  console.log("QueryUsername: <"+JSON.stringify(queryUsername)+">");
+
+  var dbRegs = db[dbname].find(queryUsername);
+  if (dbRegs.length){
+    console.log("dbRegs: <"+JSON.stringify(dbRegs)+">");
+    var dbReg = dbRegs.find(reg => reg[DbKey] == DbKeyValue);
+    console.log("dbReg: <"+JSON.stringify(dbReg)+">");
+    if(objArray in dbReg)
+    {
+      var newReg = JSON.parse(JSON.stringify(dbReg));
+      newReg[objArray].push(newItem);
+      res = db[dbname].update({_id:newReg._id}, newReg, { multi: false, upsert: false });
+      console.log(JSON.stringify(res));
+      reply = (mi>0)?mi.successMsg:"New item included. Configure it now?";
+      ret = {updated:res.updated, reply:reply};
+    }
+  }
+  return ret;
+}
+
+
+function editItemArr(dbname, query, objArray, pos, key, value)
+{
+  var dbReg = db[dbname].findOne(query);
+  if (dbReg != undefined){
+    if(objArray in dbReg)
+    {
+      if(dbReg[objArray].length > pos)
+      {
+        var newReg = JSON.parse(JSON.stringify(dbReg));
+        newReg[objArray][pos][key] = value;
+        var res = db[dbname].update({_id:newReg._id}, newReg, { multi: false, upsert: false });
+        console.log(JSON.stringify(res));
+      }
+    }
+  }
+}
+
+
+function delItemArr(dbname, query, objArray, pos)
+{
+  var dbReg = db[dbname].findOne(query);
+  if (dbReg != undefined){
+    if(objArray in dbReg)
+    {
+      if(dbReg[objArray].length > pos)
+      {
+        var newReg = JSON.parse(JSON.stringify(dbReg));
+        newReg[objArray].splice(pos,1);
+        var res = db[dbname].update({_id:newReg._id}, newReg, { multi: false, upsert: false });
+        console.log(JSON.stringify(res));
+      }
+    }
   }
 }
 
