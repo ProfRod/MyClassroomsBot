@@ -1,4 +1,22 @@
 [
+  {"command":"PCFT",
+   "command_title":"As a teacher from this classroom, you are sending this file or link as a reference for the students, corret? If so click the button bellow to choose a <b>class</b> or a <b>task</b> to attach it, or back to the main classrooms menu.",
+   "menuItems":[
+     {"button_label":"Choose a class to attach", "actionFunction":"getItemsArray", "savedbname":"references", "dbname":"classrooms", "dbKeyFilter":"id", "objArray":"classes", "ArrayMainKey":"name", "callbackFNC":"saveFile",
+      "actionTxt":"All right... Please, choose a <b>class</b> to attach the reference sent "},
+     {"button_label":"Choose a task to attach", "actionFunction":"getItemsArray", "savedbname":"references", "dbname":"classrooms", "dbKeyFilter":"id", "objArray":"tasks", "ArrayMainKey":"title", "callbackFNC":"saveFile",
+      "actionTxt":"All right... Please, choose a <b>task</b> to attach the reference sent "},
+     {"button_label":"Back to the classrooms' menu", "actionFunction":"pickClassroom"}
+   ]
+  },
+  {"command":"PCFS",
+   "command_title":"As a student from this classroom, you are sending this file or link as a deliverable for the teacher, corret? If so click the button bellow to choose a task to attach it, or back to the main classrooms menu.",
+   "menuItems":[
+     {"button_label":"Choose a task to attach", "actionFunction":"getItemsArray", "savedbname":"deliveries", "dbname":"classrooms", "dbKeyFilter":"id", "objArray":"tasks", "ArrayMainKey":"title", "callbackFNC":"saveFile",
+      "actionTxt":"All right... Please, choose a <b>task</b> to attach the reference sent "},
+     {"button_label":"Back to the classrooms' menu", "actionFunction":"pickClassroom"}
+   ]
+  },
   {"command":"PC",
    "command_title":"What do you want to do?",
    "menuItems":[
@@ -6,6 +24,15 @@
      {"button_label":"Approve Students joining request", "actionFunction":"approveStd"},
      {"button_label":"Classes", "actionCommand":"PCL"},
      {"button_label":"Tasks", "actionCommand":"TSK"},
+     {"button_label":"Pick another Classroom", "actionFunction":"pickClassroom"}
+   ]
+  },
+  {"command":"PCS",
+   "command_title":"What do you want to do?",
+   "menuItems":[
+     {"button_label":"Classes", "actionCommand":"PCLS"},
+     {"button_label":"References", "actionCommand":"REFS"},
+     {"button_label":"Tasks", "actionCommand":"TSKS"},
      {"button_label":"Pick another Classroom", "actionFunction":"pickClassroom"}
    ]
   },
@@ -79,9 +106,13 @@
    "dbname":"classrooms",
    "dbKeyFilter":"id",
    "objArray":"classes",
+   "ArrayMainKey":"name",
+   "attachments":{"userArrKey":"teachers", "userKey":"teacher", "refdbname":"references",
+                  "objTxt":"class"},
    "prevMenuButton":[
-     {"button_label":"Back to the classes menu", "actionCommand":"PCL"},
-     {"button_label":"Back to the classroom menu", "actionCommand":"PC"},
+     {"button_label":"Files and links", "actionFunction":"listReferences2"},
+     {"button_label":"Classes menu", "actionCommand":"PCL"},
+     {"button_label":"Classroom menu", "actionCommand":"PC"},
      {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
    ],
    "successMsg":"The profile of the Class from classroom <b>$dbKeyFilter</b> was successfully updated.",
@@ -130,7 +161,11 @@
    "dbname":"classrooms",
    "dbKeyFilter":"id",
    "objArray":"tasks",
+   "ArrayMainKey":"title",
+   "attachments":{"userArrKey":"teachers", "userKey":"teacher", "refdbname":"references",
+                  "objTxt":"task"},
    "prevMenuButton":[
+     {"button_label":"List files and links attached", "actionFunction":"listReferences2"},
      {"button_label":"Back to the tasks menu", "actionCommand":"TSK"},
      {"button_label":"Back to the classroom menu", "actionCommand":"PC"},
      {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}

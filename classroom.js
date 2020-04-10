@@ -29,7 +29,7 @@ setInterval(session_timeout_countdown, 30000);
 
 
 // Connect to diskdb
-db.connect('./data', ['adminusers','teacherusers','studentusers','classrooms','references']);
+db.connect('./data', ['adminusers','teacherusers','studentusers','classrooms','references','deliveries']);
 
 // helper functions
 function isAdmin(username)
@@ -344,37 +344,116 @@ function getItemsArray(msg, data){
     console.log("menu_cmd: <"+JSON.stringify(menu_cmd)+">");
     if(menu_cmd != undefined)
     {
-      var dbname = menu_cmd.dbname;
-      var txtKey = menu_cmd.ArrayMainKey;
-    console.log("txtKey: <"+JSON.stringify(txtKey)+">");
-      var dbId = menu_cmd.dbKeyFilter;
-      var objArray = menu_cmd.objArray;
-      var actionFunc = data.AF;
-      var menuitem = menu_cmd.menuItems.find( item=> item.actionFunction == actionFunc);
-      replyTxt = menuitem.actionTxt;
-      callbackCMD = menuitem.callbackCMD;
-    console.log("replyTxt: <"+JSON.stringify(replyTxt)+">");
+      var menuitem = menu_cmd.menuItems[data.mi];
+    console.log("data.mi: <"+data.mi+">");
+    console.log("menuitem: <"+JSON.stringify(menuitem)+">");
+
+      if('savedbname' in menuitem) var savedbname = menuitem.savedbname;
+      else if('savedbname' in menu_cmd) var savedbname = menu_cmd.savedbname;
+
+      if('dbname' in menuitem) var dbname = menuitem.dbname;
+      else if('dbname' in menu_cmd) var dbname = menu_cmd.dbname;
+
+      if('ArrayMainKey' in menuitem) var txtKey = menuitem.ArrayMainKey;
+      else if('ArrayMainKey' in menu_cmd) var txtKey = menu_cmd.ArrayMainKey;
+
+      if('dbKeyFilter' in menuitem) var dbId = menuitem.dbKeyFilter;
+      else if('dbKeyFilter' in menu_cmd) var dbId = menu_cmd.dbKeyFilter;
+
+      if('objArray' in menuitem) var objArray = menuitem.objArray;
+      else if('objArray' in menu_cmd) var objArray = menu_cmd.objArray;
+
+      if('actionTxt' in menuitem) replyTxt = menuitem.actionTxt;
+      else if('actionTxt' in menu_cmd) replyTxt = menu_cmd.actionTxt;
+
+      if('callbackFNC' in menuitem){
+        var callback = menuitem.callbackFNC;
+        var cmdKey = 'AF';
+      } else if('callbackCMD' in menuitem){
+        var callback = menuitem.callbackCMD;
+        var cmdKey = 'c';
+      }
+
       var query = {[dbId]:data.i};
       var item = db[dbname].findOne(query);
       if( item != undefined ){
+        var ind = upload_files_session.findIndex(u => u.username == msg.chat.username);
+        if(ind>=0) {
+          upload_files_session[ind].dbname = dbname;
+          upload_files_session[ind].savedbname = savedbname;
+          upload_files_session[ind].objArray = objArray;
+          upload_files_session[ind].timeout = 2;
+        }
         var ArrayItems = item[objArray];
     console.log("ArrayItems: <"+JSON.stringify(ArrayItems)+">");
-        var kb = myArrayItemsKb(ArrayItems, txtKey, item[dbId], callbackCMD,  2, 3, 0);
+        var kb = myArrayItemsKb(ArrayItems, txtKey, item[dbId], cmdKey, callback,  2, 3, data);
     console.log("kb: <"+JSON.stringify(kb)+">");
         //opt = {parse_mode: "HTML", reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
         opt = {parse_mode: "HTML", reply_markup: { inline_keyboard: kb }};
       }
     }
+    menu_session[mi].data = data;
+    console.log("\n\nmenu_Session.data: <"+JSON.stringify(menu_session[mi].data)+">");
   }
   
   bot.sendMessage(msg.chat.id, replyTxt, opt).catch(function (err) {
     if (err)
       console.log("sendMessage error: " + err);
   });
+} 
+
+
+function saveFile(msg, data){
+  var ind = upload_files_session.findIndex(u => u.username == msg.chat.username);
+  if(ind>=0 && 'hasfile' in upload_files_session[ind]){
+    //If a reference was first sent by Teacher, just set classroom and class to attach and save it
+    var newfile = JSON.parse(JSON.stringify(upload_files_session[ind]));
+    upload_files_session[ind].timeout = 2;
+    var dbname = newfile.savedbname;
+    var objArray = newfile.objArray;
+    console.log("dbname: <"+JSON.stringify(dbname)+">");
+    console.log("objArray: <"+JSON.stringify(objArray)+">");
+    delete newfile.hasfile; delete newfile.timeout;
+    delete newfile.objArray; delete newfile.savedbname;
+    delete newfile.dbname;
+    newfile.classroom = data.i;
+    newfile[objArray] = data.ap;
+    console.log("newfile: <"+JSON.stringify(newfile)+">");
+    db[dbname].save(newfile);
+    var kb = dismiss_kb(msg.from.username, newfile.message_id);
+    if('entities' in newfile &&
+       'type' in newfile.entities[0] &&
+       newfile.entities[0].type == "url"){
+      var opt = {reply_to_message_id: newfile.message_id, parse_mode: "MarkdownV2", reply_markup:{inline_keyboard: kb, force_reply: true, selective: true} };
+      var urlTxt = escURL("Write a description for the url (", newfile.text, "). If you do not want to write a description, just click the button Dismiss, so the reference (url link) will be saved without a description.");
+    } else {
+      var opt = {reply_to_message_id: newfile.message_id,
+                 reply_markup:{inline_keyboard: kb, force_reply: true, selective: true} };
+      var urlTxt = "Write a description for the file. If you do not want to write a description, just click the button Dismiss, so the file will be saved without a description."
+    }
+    
+    bot.sendMessage(msg.chat.id, urlTxt, opt).catch(function (err) {
+      if (err) console.log("sendMessage error: " + err);
+    });
+
+  } else {
+    //The classroom and class are already choosen. Now ask for the reference
+    var kbtext = "Please, send one or more file (documents, voice messages, video/audio) or url links to attach them to " + data.i + " Classroom";
+
+    set_upload_files_session({username:msg.chat.username,
+                              classroom:data.i, classpos:data.ap, timeout:2});
+
+    console.log("upload_files_session=<"+JSON.stringify(upload_files_session)+">");
+
+    editMT(msg.chat.id, msg.message_id, kbtext);
+  }
+
 }
 
-function myArrayItemsKb(ArrayItems, txtKey, dbId, callbackCMD,  kbcols, kbrows, last_index)
+
+function myArrayItemsKb(ArrayItems, txtKey, item_dbId, cmdKey, callback,  kbcols, kbrows, prev_data)
 {
+  const last_index = ('n' in prev_data)?prev_data.n:0;
   const nbuttons = kbcols * kbrows;
   const next_index = last_index+nbuttons;
   const prev_index = last_index-nbuttons;
@@ -390,8 +469,8 @@ function myArrayItemsKb(ArrayItems, txtKey, dbId, callbackCMD,  kbcols, kbrows, 
         row.push({
           text: (n+1)+": "+ArrayItems[n][txtKey],
           callback_data: JSON.stringify({
-            'c': callbackCMD, // command to process the Array Item
-            'i': dbId, // Database register filter
+            [cmdKey]: callback, // command to process the Array Item
+            'i': item_dbId, // Database register filter
             'ap': n // ArrayItem Position to be processed by action Function
           })
         });
@@ -399,8 +478,8 @@ function myArrayItemsKb(ArrayItems, txtKey, dbId, callbackCMD,  kbcols, kbrows, 
         row.push({
           text: (n+1)+": "+ArrayItems[n][txtKey],
           callback_data: JSON.stringify({
-            'c': callbackCMD, // command to process the Array Item
-            'i': dbId, // Database register filter
+            [cmdKey]: callback, // command to process the Array Item
+            'i': item_dbId, // Database register filter
             'ap': n // ArrayItem Position to be processed by action Function
           })
         });
@@ -412,32 +491,24 @@ function myArrayItemsKb(ArrayItems, txtKey, dbId, callbackCMD,  kbcols, kbrows, 
     console.log("AKI B3");
     if(i%kbcols) kbrd.push(row);
 
+    prev_data.n = prev_index;
     console.log("AKI B4");
     if(next_index>nbuttons){
       kbrd.unshift([
         {
           text: 'less ',
-          callback_data: JSON.stringify({
-            'c': 'MIT', //ask for less items
-            'i': dbId, // Database register filter
-            'CB': callbackCMD, // Action Function to process the Array Item
-            'n': prev_index //prev index of the list to show the keyboard
-          })
+          callback_data: JSON.stringify(prev_data)
         }
       ]);
     }
 
+    prev_data.n = next_index;
     console.log("AKI B5");
     if(n>=next_index){
       kbrd.push([
         {
           text: 'more ',
-          callback_data: JSON.stringify({
-            'c': 'MIT', //ask for more items 
-            'i': dbId, // Database register filter
-            'CB': callbackCMD, // Action Function to process the Array Item
-            'n': next_index //next index of the list to show the keyboard
-          })
+          callback_data: JSON.stringify(prev_data)
         }
       ]);
     }
@@ -449,7 +520,7 @@ function myArrayItemsKb(ArrayItems, txtKey, dbId, callbackCMD,  kbcols, kbrows, 
 }
 
 
-function myClassroomsKb(classrooms, kbcols, kbrows, last_index)
+function myClassroomsKb(classrooms, student_cmd, teacher_cmd, kbcols, kbrows, last_index)
 {
   const nbuttons = kbcols * kbrows;
   const next_index = last_index+nbuttons;
@@ -465,7 +536,7 @@ function myClassroomsKb(classrooms, kbcols, kbrows, last_index)
             text: (classroom.role=="student"?GRADCAP:SCHOOL) + " " +
 		   classroom.name + " (" + classroom.id + ")",
             callback_data: JSON.stringify({
-              'c': 'PC', // Pick a classroom
+              'c': (classroom.role=="student"?student_cmd:teacher_cmd), // Pick a classroom
               'i': classroom.id //classroom ID
             })
           });
@@ -474,7 +545,7 @@ function myClassroomsKb(classrooms, kbcols, kbrows, last_index)
             text: (classroom.role=="student"?GRADCAP:SCHOOL) + " " +
 		   classroom.name + " (" + classroom.id + ")",
             callback_data: JSON.stringify({
-              'c': 'PC', // Pick a classroom
+              'c': (classroom.role=="student"?student_cmd:teacher_cmd), // Pick a classroom
               'i': classroom.id //classroom ID
             })
           });
@@ -492,6 +563,8 @@ function myClassroomsKb(classrooms, kbcols, kbrows, last_index)
           text: 'less classrooms',
           callback_data: JSON.stringify({
             'c': 'MPC', //ask for less classrooms
+            'tc': teacher_cmd, //
+            'sc': student_cmd, //
             'n': prev_index //prev index of the list to show the keyboard
           })
         }
@@ -504,6 +577,8 @@ function myClassroomsKb(classrooms, kbcols, kbrows, last_index)
           text: 'more classrooms',
           callback_data: JSON.stringify({
             'c': 'MPC', //ask for more classrooms 
+            'tc': teacher_cmd, //
+            'sc': student_cmd, //
             'n': next_index //next index of the list to show the keyboard
           })
         }
@@ -581,7 +656,7 @@ function pickItemArr(msg,data){
 
 function pickClassroom(msg){
   var myclassrooms = getMyClassrooms(msg);
-  var kb = myClassroomsKb(myclassrooms,1,4,0);
+  var kb = myClassroomsKb(myclassrooms, "PCS", "PC", 1, 4, 0);
   var opt = { reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
   var replyTxt = "Which one of your classrooms do you want?";
   bot.sendMessage(msg.chat.id, replyTxt, opt).catch(function (err) {
@@ -603,7 +678,6 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
   console.log('[' + new Date().toString() + '] Command /join ' + match[1] + ' from username:@' + msg.from.username);
   var reply = "Invalid Command. Type /help for more info.";
   var opt = {parse_mode: "HTML"};
-  console.log("AKI 1");
   var kb = [
     [{ text: 'Complete your personal profile',
        callback_data: JSON.stringify({
@@ -617,7 +691,6 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
          'i': msg.chat.username //classroom ID
        })
     }]];
-  console.log("AKI 2");
 
   // Check if classroom id exists
   var query = {
@@ -631,10 +704,8 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
                               phone:"", email:"", status:"request"});
   } 
 
-  console.log("AKI 3");
   if( classroom != undefined )
   {
-  console.log("AKI 3.1");
     var student_index = classroom.students.findIndex(s => s.student == msg.chat.username);
 
     if( student_index>=0 && classroom.students[student_index].status != "exited")
@@ -654,7 +725,6 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
       {
         classroom_updated.students.push({student:msg.chat.username, status:"request"});
       }
-  console.log("AKI 3.2");
 
       var options = {
         multi: false,
@@ -679,12 +749,10 @@ bot.onText(/\/join ([^\s\\]+)$/, (msg, match) => {
   }
   else
   {
-  console.log("AKI 3.2");
     reply = "Invalid Classroom id: " + match[1] + "\n";
   }
 
 
-  console.log("AKI 4");
   bot.sendMessage(msg.chat.id, reply, opt).catch(function (err) {
     if (err)
       console.log("sendMessage error: " + err);
@@ -793,6 +861,222 @@ bot.onText(/\/ref ([^\s\\]+)$/, (msg, match) => {
 });
 
 
+function listRegs(msg, data, command)
+{
+  menu.forEach(function(cmd,i,o){
+    if(command == cmd.command){
+        var sdata = JSON.parse(JSON.stringify(data));
+        delete sdata.c;
+        var kb = menu_kb(cmd.command, sdata,2);
+        var opt = {parse_mode: "HTML", reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
+        var dbData="";
+        var query = {[cmd.dbKeyFilter]:data.i};
+        var item2 = db[cmd.dbname].findOne(query);
+        if('objArray' in cmd){
+    console.log("item2: <"+JSON.stringify(item2)+">");
+	  var item = item2[cmd.objArray][data.ap];
+	} else var item = item2;
+    console.log("item: <"+JSON.stringify(item)+">");
+        cmd.objects.forEach(function(obj){
+          dbData += "<b>"+obj.button_label+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
+        });
+        set_menu_session({username:msg.chat.username, cmd:cmd.command,
+                          timeout:2, data:sdata});
+        var txtReply = dbData + "\n" + MEMO + " " +
+		       cmd.command_title.replace(/\$dbKeyFilter/,data.i);
+        bot.sendMessage(msg.chat.id, txtReply, opt).catch(function (err) {
+          if (err)
+            console.log("sendMessage error: " + err);
+        });
+    }
+  });
+}
+
+
+//
+function editFileDesc(msg, data)
+{
+}
+
+
+//
+function delFile(msg, data)
+{
+  var mi = menu_session.findIndex(m => m.username == msg.chat.username);
+  var replyTxt = "Your answer took too long. Please start the command again";
+  var title = "";
+  var opt = {parse_mode: "HTML"};
+  var delitem = false;
+
+  if(mi>=0){
+    var cmd = menu_session[mi].cmd;
+    var sdata = menu_session[mi].data;
+    console.log("cmd: <"+JSON.stringify(cmd)+">");
+    console.log("menu_session_data: <"+JSON.stringify(sdata)+">");
+    console.log("data: <"+JSON.stringify(data)+">");
+    var menu_cmd = menu.find(m => m.command == cmd);
+    console.log("menu_cmd: <"+JSON.stringify(menu_cmd)+">");
+    if(menu_cmd != undefined)
+    {
+      var options = menu_cmd.attachments;
+      console.log("options: <"+JSON.stringify(options)+">");
+
+      var dbname = menu_cmd.dbname;
+      var objArray = menu_cmd.objArray;
+      var ArrayMainKey = menu_cmd.ArrayMainKey;
+      var dbKeyFilter = menu_cmd.dbKeyFilter;
+      var query = {[dbKeyFilter]:data.i};
+    
+      var itemFound = db[dbname].findOne(query);
+  
+      if( itemFound != undefined )
+      {
+        var user_index = itemFound[options.userArrKey].findIndex(s => s[options.userKey] == msg.chat.username);
+
+        if( user_index>=0 )
+        {
+          query = { [dbKeyFilter]:data.i, [objArray]:data.ap };
+          console.log("query 2: <"+JSON.stringify(query)+">");
+          var refs = db[options.refdbname].find(query);
+          if( refs.length )
+          {
+            query = {_id:refs[data.fi]._id};
+            console.log("query 3: <"+query+">");
+            delitem = db[options.refdbname].remove(query);
+            console.log("del item: <"+JSON.stringify(delitem)+">");
+            if(delitem)
+              var replyTxt = "<b>Successfully</b> removed the File or Link";
+            else
+              var replyTxt = "<b>Failed</b> to remove the File or Link";
+	  }
+        }
+      }
+    }
+  }
+  bot.sendMessage(msg.chat.id, replyTxt, opt)
+    .then(function(payload) {
+      listRegs(msg, sdata, cmd);
+    })
+    .catch(function (err) {
+      if (err)
+        console.log("sendMessage error: " + err);
+    });
+}
+
+
+//Send Messages with the Reference files, per classroom per Array
+function listReferences2(msg, data)
+{
+  var mi = menu_session.findIndex(m => m.username == msg.chat.username);
+  var replyTxt = "Your answer took too long. Please start the command again";
+  var title = "";
+  var opt = {parse_mode: "HTML"};
+
+  if(mi>=0){
+    var cmd = menu_session[mi].cmd;
+    var sdata = menu_session[mi].data;
+    console.log("cmd: <"+JSON.stringify(cmd)+">");
+    console.log("menu_session_data: <"+JSON.stringify(sdata)+">");
+    console.log("data: <"+JSON.stringify(data)+">");
+    var menu_cmd = menu.find(m => m.command == cmd);
+    console.log("menu_cmd: <"+JSON.stringify(menu_cmd)+">");
+    if(menu_cmd != undefined)
+    {
+      var options = menu_cmd.attachments;
+      console.log("options: <"+JSON.stringify(options)+">");
+
+      var dbname = menu_cmd.dbname;
+      var objArray = menu_cmd.objArray;
+      var ArrayMainKey = menu_cmd.ArrayMainKey;
+      var dbKeyFilter = menu_cmd.dbKeyFilter;
+      var query = {[dbKeyFilter]:sdata.i};
+      console.log("query 1: <"+JSON.stringify(query)+">");
+    
+      var itemFound = db[dbname].findOne(query);
+  
+      if( itemFound != undefined )
+      {
+      console.log("AKI 1");
+        var user_index = itemFound[options.userArrKey].findIndex(s => s[options.userKey] == msg.chat.username);
+      console.log("AKI 2");
+
+        if( user_index>=0 )
+        {
+      console.log("AKI 3");
+          query = { [dbKeyFilter]:sdata.i, [objArray]:sdata.ap };
+          console.log("query 2: <"+JSON.stringify(query)+">");
+          var refs = db[options.refdbname].find(query);
+  
+          if(refs.length)
+            var msgTxt = "Listing <b>" + refs.length + " files/links </b> attached to <b>" +
+                         options.objTxt + " " + itemFound[objArray][sdata.ap][ArrayMainKey] +
+                         "</b> from Classroom <b>(id: " + itemFound[dbKeyFilter] + "</b>):";
+          else
+            var msgTxt = "<b>No references</b> attached to <b>" + options.objTxt + ": " +
+                          itemFound[objArray][sdata.ap][ArrayMainKey] +
+                         "</b> from Classroom <b>id: " + itemFound[dbKeyFilter] + "</b>, yet";
+          bot.sendMessage(msg.chat.id, msgTxt, opt)
+            .then(function(payload) {
+              refs.forEach(function(ref, fi){
+                var kb = [
+                  [{ text: 'Delete',
+                     callback_data: JSON.stringify({
+                       'AF': 'delFile', //
+                       'i': sdata.i, //classroom ID
+                       'ap': sdata.ap, //array position
+                       'fi': fi //file position
+                     })
+                   },
+                   { text: 'Edit Description',
+                     callback_data: JSON.stringify({
+                       'AF': 'editFileDesc', //
+                       'i': sdata.i, //classroom ID
+                       'ap': sdata.ap, //array position
+                       'fi': fi //file position
+                     })
+                  }]
+                ];
+
+                if('file_id' in ref)
+                {
+                  msgTxt = "𝕯𝖊𝖘𝖈𝖗𝖎𝖕𝖙𝖎𝖔𝖓: "+ref.description;
+                  opt = {caption:msgTxt, parse_mode: "HTML"};
+                  opt.reply_markup= { inline_keyboard: kb };
+                  sendRef(msg.chat.id, ref.file_id, opt, ref.type);
+                }
+                else
+                {
+                  opt = {parse_mode: "HTML"};
+                  opt.reply_markup= { inline_keyboard: kb };
+      //opt = Object.assign({}, opt, { reply_markup: { inline_keyboard: kb }});
+                  msgTxt = ref.text+"\n𝕯𝖊𝖘𝖈𝖗𝖎𝖕𝖙𝖎𝖔𝖓: "+ref.description;
+                  bot.sendMessage(msg.chat.id, msgTxt, opt).catch(function (err) {
+                    if (err)
+                    console.log("sendMessage error: " + err);
+                  });
+                }
+              });
+            })
+            .catch(function (err) {
+              if (err)
+                console.log("sendMessage error: " + err);
+            });
+
+        }
+      }
+      else
+      {
+        var msgTxt = "You <b>are not</b> an <b>approved member</b> of an opened classroom, yet";
+        bot.sendMessage(msg.chat.id, msgTxt, opt).catch(function (err) {
+          if (err)
+          console.log("sendMessage error: " + err);
+        });
+      }
+    }
+  }
+}
+
+
 //Send Messages to Student Users with the Reference files, per classroom per class
 function listReferences(msg, classroom, classpos)
 {
@@ -865,12 +1149,7 @@ function listReferences(msg, classroom, classpos)
 }
 
 
-// Get All References from a Classroom
-bot.onText(/\/ref$/, (msg, match) => {
-
-  console.log('[' + new Date().toString() + '] Command /ref from username:@' + msg.from.username);
-  var reply = "Invalid Command. Type /help for more info.";
-
+function references(msg){
   //send an inline keybord to the student username
   //to let him choose a classroom to list its references
   if( isStudentUser(msg.from.username) )
@@ -880,6 +1159,14 @@ bot.onText(/\/ref$/, (msg, match) => {
     var kbtext = "Choose a Classroom to list all its references";
     bot.sendMessage(msg.chat.id, kbtext, kbjson);
   }
+}
+
+// Get All References from a Classroom
+bot.onText(/\/ref$/, (msg, match) => {
+
+  console.log('[' + new Date().toString() + '] Command /ref from username:@' + msg.from.username);
+  var reply = "Invalid Command. Type /help for more info.";
+  references(msg);
 
 });
 
@@ -916,7 +1203,7 @@ function addFile(msg, type){
 
   var attach = "";
   var attach = (type == "url")?(({ text, entities}) => ({ text, entities}))(msg):msg[type];
-  var session = upload_files_session.find(u => u.teacher == msg.from.username);
+  var session = upload_files_session.find(u => u.username == msg.from.username);
 
   if (session != undefined){
     var newfile = Object.assign({}, session, attach, {description:"", type:type}, (({message_id}) => ({message_id}))(msg));
@@ -940,16 +1227,69 @@ function addFile(msg, type){
     });
       //bot.sendDocument(msg.chat.id, msg[type].file_id);
   } else {
-    var kb = choose_classroom_kb(msg.from.username, "d", 0 );
+    var myclassrooms = getMyClassrooms(msg);
+    //Pick Classroom for File sent by Student (PCFS) or Teacher (PCFT)
+    var kb = myClassroomsKb(myclassrooms, "PCFS", "PCFT", 1, 4, 0);
+    //var kb = choose_classroom_kb(msg.from.username, "d", 0 );
     var kbjson = { reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kb }};
-    var kbtext = "Choose a Classroom to attach the reference already sent";
+    var kbtext = "Please, choose a Classroom to attach the file or link already sent";
 
-    var newsession = {teacher:msg.chat.username, classroom:"",
-                      description:"", type:type, classpos:"", hasfile:true, timeout:2};
+    //var newsession = {username:msg.chat.username, classroom:"",
+    //                description:"", type:type, classpos:"", hasfile:true, timeout:2};
+    var newsession = {username:msg.chat.username, classroom:"",
+                      description:"", type:type, hasfile:true, timeout:2};
     var newfile = Object.assign( {}, newsession, attach, (({message_id}) => ({message_id}))(msg) );
     set_upload_files_session(newfile);
 
     bot.sendMessage(msg.chat.id, kbtext, kbjson);
+  }
+}
+
+
+function addDescription2FileOrLink(msg){
+  console.log("addDescription2FileOrLink");
+  // Try to find a file or url sent to add a description to it
+  var ind = upload_files_session.findIndex(u => u.username == msg.chat.username);
+  if(ind>=0 && 'savedbname' in upload_files_session[ind]){
+  console.log("AKI 1");
+    var dbname = upload_files_session[ind].savedbname;
+
+    var doc_id = ( msg.message_id - 2 );
+    var doc = db[dbname].findOne({username: msg.chat.username, message_id:doc_id});
+
+    if( doc == undefined ){
+  console.log("AKI 2");
+      console.log("Session:<"+JSON.stringify(upload_files_session[ind])+">\n");
+      if('hasfile' in upload_files_session[ind]){
+        doc_id = upload_files_session[ind].message_id;
+        doc = db[dbname].findOne({username: msg.chat.username, message_id:doc_id});
+      }
+    }
+
+    console.log("DOC found=<"+JSON.stringify(doc)+">"); 
+    if( doc != undefined ){
+      var doc_update = JSON.parse(JSON.stringify(doc));
+      doc_update.description = msg.text;
+      delete doc_update.message_id;
+      var options = {
+        multi: true,
+        upsert: false
+      };
+      var updated = db[dbname].update({_id:doc._id}, doc_update, options);
+      console.log(updated); 
+      var mi = menu_session.findIndex(m => m.username == msg.chat.username);
+      if(mi>=0) menu_session.splice(mi,1);
+
+      var kbtext = "You have successfully attached the file or link";
+      bot.sendMessage(msg.chat.id, kbtext).catch(function (err) {
+        if (err) console.log("sendMessage error: " + err);
+      });
+      set_upload_files_session({username:msg.chat.username,
+                         classroom:doc.classroom, classpos:doc.classpos, timeout:2});
+      console.log("upload_files_session=<"+JSON.stringify(upload_files_session)+">");
+
+  
+    }
   }
 }
 
@@ -997,43 +1337,11 @@ bot.on("message", msg => {
   } else if (msg.text) {
     console.log("type == text");
     reply_main_cmd(msg);
+      console.log("AKI A");
+    addDescription2FileOrLink(msg);
+      console.log("AKI B");
     reply_menu(msg);
-
-    if( isteacherUser(msg.chat.username) ){
-      var doc_id = ( msg.message_id - 2 );
-      var doc = db.references.findOne({teacher: msg.chat.username, message_id:doc_id});
-
-      if( doc == undefined ){
-        var ind = upload_files_session.findIndex(u => u.teacher == msg.chat.username);
-        console.log("Session:<"+JSON.stringify(upload_files_session[ind])+">\n");
-        if(ind>=0 && 'hasfile' in upload_files_session[ind]){
-          doc_id = upload_files_session[ind].message_id;
-          doc = db.references.findOne({teacher: msg.chat.username, message_id:doc_id});
-        }
-      }
-
-      console.log("DOC found=<"+JSON.stringify(doc)+">"); 
-      if( doc != undefined ){
-        var doc_update = JSON.parse(JSON.stringify(doc));
-        doc_update.description = msg.text;
-        delete doc_update.message_id;
-        var options = {
-          multi: true,
-          upsert: false
-        };
-        var updated = db.references.update({_id:doc._id}, doc_update, options);
-        console.log(updated); 
-
-        var kbtext = "You have successfully attached a reference to your classroom";
-        bot.sendMessage(msg.chat.id, kbtext).catch(function (err) {
-          if (err) console.log("sendMessage error: " + err);
-        });
-        set_upload_files_session({teacher:msg.chat.username,
-	                          classroom:doc.classroom, classpos:doc.classpos, timeout:2});
-        console.log("upload_files_session=<"+JSON.stringify(upload_files_session)+">");
-
-      }
-    }
+    console.log("AKI C");
   }
 });
 
@@ -1067,13 +1375,15 @@ bot.onText(/\/approve$/, (msg, match) => {
 });
 
 
-function menu_kb(command, args){
+function menu_kb(command, args, cols){
   var query = {
     command:command
   };
   var cmd = menu.find(m => m.command == command);
   var kb = [];
   var cd = {};
+  var tmp_data = {}; var cntr=0;
+
   cmd.objects.forEach(function(obj,i,o){
     console.log("'c':" +  cmd.command+i + " >");
     cd = Object.assign({}, {'c': cmd.command+i}, args);
@@ -1089,10 +1399,21 @@ function menu_kb(command, args){
       else if('actionFunction' in obj)
         cd = Object.assign({}, {'AF': obj.actionFunction}, args);
       else cd = "";
-      if(cd!="") kb.push([{ text: obj.button_label,
+      if(cd!=""){
+        if(cntr%cols){
+	      kb.push([tmp_data, { text: obj.button_label,
                          callback_data: JSON.stringify(cd)
                          }]);
+        } else {
+          tmp_data = { text: obj.button_label,
+             callback_data: JSON.stringify(cd)
+          }
+        }
+        cntr++;
+      }
     });
+    if(cntr%cols)
+      kbrd.push([tmp_data]);
   }
   console.log("menu_kb:<" + JSON.stringify(kb) + ">");
   return(kb);
@@ -1149,7 +1470,7 @@ bot.onText(/\/new ([^\s\\]+)$/, (msg, match) => {
                           students:[], classes:[]});
       reply = WINKING_FACE+ " Classroom <b>" + match[1] + "</b> successfully created. Please configure the classroom profile";
       //var kb = new_classroom_kb(match[1]);
-      var kb = menu_kb("EC", {'i': match[1]});
+      var kb = menu_kb("EC", {'i': match[1]},2);
       opt = Object.assign({}, opt, { reply_markup: { inline_keyboard: kb }});
     } else
     {
@@ -1183,7 +1504,7 @@ bot.onText(/\/new2 ([^\s\\]+)$/, (msg, match) => {
       db.classrooms.save({id:match[1], name:"", institution:"", course:"", description:"", hours:""});
       reply = "Classroom <b>" + match[1] + "</b> successfully created. Please configure the classroom";
       //var kb = new_classroom_kb(match[1]);
-      var kb = menu_kb("EC", {'i': match[1]});
+      var kb = menu_kb("EC", {'i': match[1]},2);
       opt = Object.assign({}, opt, { reply_markup: { inline_keyboard: kb }});
     } else
     {
@@ -1587,7 +1908,7 @@ bot.on('callback_query', (callbackQuery) => {
   }
   else if(data.c == "MPC"){ //list more classrooms to Pick one
     var myclassrooms = getMyClassrooms(message);
-    var kb = myClassroomsKb(myclassrooms,1,4,data.n);
+    var kb = myClassroomsKb(myclassrooms, data.sc, data.tc, 1, 4, data.n);
     editMRM(message.chat.id, message.message_id, kb);
   }
   else if(data.c == "ms"){ //list more students for some context
@@ -1629,47 +1950,7 @@ bot.on('callback_query', (callbackQuery) => {
 
   } else if(data.c == "cl"){ //Choose a class to some action
     if(data.f == "d"){ //Choose a class to send a reference (the classroom was already choosen)
-
-      var ind = upload_files_session.findIndex(u => u.teacher == message.chat.username);
-      if(ind>=0 && 'hasfile' in upload_files_session[ind]){
-      //If a reference was first sent by Teacher, just set classroom and class to attach and save it
-        var newfile = JSON.parse(JSON.stringify(upload_files_session[ind]));
-        delete newfile.hasfile;
-        delete newfile.timeout;
-        newfile.classroom = data.i;
-        newfile.classpos = data.ci;
-        db.references.save(newfile);
-        var kb = dismiss_kb(message.from.username, newfile.message_id);
-        if('entities' in newfile &&
-           'type' in newfile.entities[0] &&
-           newfile.entities[0].type == "url"){
-          var opt = {reply_to_message_id: newfile.message_id, parse_mode: "MarkdownV2", reply_markup:{inline_keyboard: kb, force_reply: true, selective: true} };
-          var urlTxt = escURL("Write a description for the url (", newfile.text, "). If you do not want to write a description, just click the button Dismiss, so the reference (url link) will be saved without a description.");
-        } else {
-          var opt = {reply_to_message_id: newfile.message_id,
-	             reply_markup:{inline_keyboard: kb, force_reply: true, selective: true} };
-          var urlTxt = "Write a description for the reference. If you do not want to write a description, just click the button Dismiss, so the reference will be saved without a description."
-        }
-    
-        bot.sendMessage(message.chat.id, urlTxt, opt).catch(function (err) {
-          if (err)
-          console.log("sendMessage error: " + err);
-        });
-
-            
-      } else
-      {
-        //The classroom and class are already choosen. Now ask for the reference
-        var kbtext = "Please, send one or more references (documents, voice messages, video/audio files or url links) to attach them to " + data.i + " Classroom";
-
-        set_upload_files_session({teacher:message.chat.username,
-	                          classroom:data.i, classpos:data.ci, timeout:2});
-
-        console.log("upload_files_session=<"+JSON.stringify(upload_files_session)+">");
-
-        editMT(message.chat.id, message.message_id, kbtext);
-      }
-
+      saveFile(msg, data);
     } 
     if(data.f == "lr"){ //Choose a class to list its references
       listReferences(message, data.i, data.ci);
@@ -1677,16 +1958,16 @@ bot.on('callback_query', (callbackQuery) => {
   } else if(data.c == "d"){ // Dismiss button pressed
     var kbtext = "You have successfully attached a reference to your classroom";
     editMT(message.chat.id, message.message_id, kbtext);
-    var ind = upload_files_session.findIndex(u => u.teacher == message.chat.username);
+    var ind = upload_files_session.findIndex(u => u.username == message.chat.username);
     var s = upload_files_session[ind];
-    set_upload_files_session({teacher:message.chat.username,
+    set_upload_files_session({username:message.chat.username,
                               classroom:s.classroom, classpos:s.classpos, timeout:2});
     console.log("upload_files_session=<"+JSON.stringify(upload_files_session)+">");
 
   } else if(data.c == "EN"){ // Edit Name of new Classroom
     var kbtext = "Type a name for the classroom (id: " + data.i + ")";
     editMT(message.chat.id, message.message_id, kbtext);
-    set_edit_classroom_session({teacher:message.chat.username,
+    set_edit_classroom_session({username:message.chat.username,
                                 classroom:data.i, timeout:2});
     console.log("edit_classroom_session=<"+JSON.stringify(edit_classroom_session)+">");
   } else if('AF' in data){
@@ -1717,7 +1998,7 @@ bot.on('callback_query', (callbackQuery) => {
       if(data.c == cmd.command){
         var sdata = JSON.parse(JSON.stringify(data));
         delete sdata.c;
-        var kb = menu_kb(cmd.command, sdata);
+        var kb = menu_kb(cmd.command, sdata,2);
         var opt = {parse_mode: "HTML", reply_to_message_id: message.message_id, reply_markup: { inline_keyboard: kb }};
         var dbData="";
         var query = {[cmd.dbKeyFilter]:data.i};
@@ -1725,11 +2006,13 @@ bot.on('callback_query', (callbackQuery) => {
         if('objArray' in cmd){
     console.log("item2: <"+JSON.stringify(item2)+">");
 	  var item = item2[cmd.objArray][data.ap];
-	} else var item = item2;
+        } else var item = item2;
     console.log("item: <"+JSON.stringify(item)+">");
         cmd.objects.forEach(function(obj){
           dbData += "<b>"+obj.button_label+":</b> " + ((item[obj.name]!="")?item[obj.name]:PROHIBITED) +"\n";
         });
+        set_menu_session({username:message.chat.username, cmd:cmd.command,
+                          timeout:2, data:sdata});
         bot.sendMessage(message.chat.id,
                         cmd.command_title.replace(/\$dbKeyFilter/,data.i)+"\n"+dbData,
                         opt).catch(function (err) {
@@ -1744,7 +2027,7 @@ bot.on('callback_query', (callbackQuery) => {
         delete sdata.c;
         set_menu_session({username:message.chat.username, cmd:cmd.command,
                           timeout:2, data:sdata});
-        reply_menuItems(message,cmd,sdata);
+        reply_menuItems(message,cmd,sdata,2);
       }
     }
   });
@@ -1756,7 +2039,11 @@ var funcs = {
   pickClassroom: function(param){ console.log("pickClassroom"); pickClassroom(param); },
   approveStd: function(msg,data){ console.log("approveStd"); approveStd(msg,data); },
   newItemArrCB: function(msg,data){ console.log("newItemArrCB"); newItemArrCB(msg,data); },
-  getItemsArray: function(msg,data){ console.log("getItemsArray"); getItemsArray(msg,data); }
+  getItemsArray: function(msg,data){ console.log("getItemsArray"); getItemsArray(msg,data); },
+  listReferences2: function(msg,data){ console.log("listReferences2"); listReferences2(msg,data); },
+  delFile: function(msg,data){ console.log("delFile"); delFile(msg,data); },
+  editFileDesc: function(msg,data){ console.log("editFileDesc"); editFileDesc(msg,data); },
+  saveFile: function(msg,data){ console.log("saveFile"); saveFile(msg,data); }
 
 };
 
@@ -1770,20 +2057,30 @@ function approveStd(msg, data){
 }
 
 
-function reply_menuItems(msg, cmd, data){
+function reply_menuItems(msg, cmd, data, cols){
 var kbrd = [];
 var actionCommand = {};
 var actionFunction = {};
 var cb_data = {};
+var tmp_data = {}; var cntr=0;
 
   cmd.menuItems.forEach(function(item,i){
     actionCommand = ('actionCommand' in item)?{"c":item.actionCommand}:{};
     actionFunction = ('actionFunction' in item)?{"AF":item.actionFunction}:{};
-    cb_data = Object.assign({}, actionCommand, actionFunction, data);
-    kbrd.push([{ text: item.button_label,
-       callback_data: JSON.stringify(cb_data)
-    }]);
+    cb_data = Object.assign({}, actionCommand, actionFunction, data, {"mi":i});
+    cntr = i;
+    if(i%cols){
+      kbrd.push([tmp_data, { text: item.button_label,
+         callback_data: JSON.stringify(cb_data)
+      }]);
+    } else {
+      tmp_data = { text: item.button_label,
+         callback_data: JSON.stringify(cb_data)
+      }
+    }
   });
+  if(!(cntr%cols))
+    kbrd.push([tmp_data]);
   console.log("kbrd:"+JSON.stringify(kbrd));
 
   var opt = {parse_mode: "HTML", reply_to_message_id: msg.message_id, reply_markup: { inline_keyboard: kbrd }};
@@ -1829,7 +2126,7 @@ function session_timeout_countdown(){
 
 
 function set_upload_files_session(session){
-var ind = upload_files_session.findIndex(u => u.teacher == session.teacher);
+var ind = upload_files_session.findIndex(u => u.username == session.username);
   if(ind >= 0 ){
     //if there is already an oppened session for a teacher, remove it and insert the new one
     upload_files_session.splice(ind,1,session);
@@ -1867,17 +2164,21 @@ function reply_menu(msg){
   var title = "";
 
   if(mi>=0){
+      console.log("AKI A1");
     var cmd = menu_session[mi].cmd;
     var pos = menu_session[mi].objpos;
     var data = menu_session[mi].data;
     var menu_cmd = menu.find(m => m.command == cmd);
+  console.log("menu_session=<"+JSON.stringify(menu_session)+">");
     if(menu_cmd != undefined)
     {
+      console.log("AKI A2");
       var dbname = menu_cmd.dbname;
       var query = {[menu_cmd.dbKeyFilter]:data.i};
       var item = db[dbname].findOne(query);
       if(item != undefined)
       {
+      console.log("AKI A3");
         var newitem = JSON.parse(JSON.stringify(item));
 
         if('objArray' in menu_cmd){
@@ -1901,13 +2202,14 @@ function reply_menu(msg){
 	}
         });
       }
+      console.log("AKI A4");
       title += MEMO+" "+menu_cmd.command_title.replace(/\$dbKeyFilter/,data.i);
     }
     menu_session.splice(mi,1);
     if('objArray' in menu_cmd){
-      var kb = menu_kb(cmd, {'i': data.i, 'ap':data.ap});
+      var kb = menu_kb(cmd, {'i': data.i, 'ap':data.ap},2);
     } else {
-      var kb = menu_kb(cmd, {'i': data.i});
+      var kb = menu_kb(cmd, {'i': data.i},2);
     }
     
     //editMRM(msg.chat.id, msg.message_id, kb);
