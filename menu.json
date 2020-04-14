@@ -41,6 +41,11 @@
    "dbKeyFilter":"id",
    "successMsg":"The profile of the Classroom <b>$dbKeyFilter</b> was successfully updated.",
    "failMsg":"Failed to update classroom <b>$dbKeyFilter</b> profile.",
+   "prevMenuButton":[
+     {"button_label":"Delete this classroom", "actionFunction":"delclassroom"},
+     {"button_label":"This classroom menu", "actionCommand":"PC"},
+     {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
+   ],
    "objects":[
      {"name":"name", "button_label":"Classroom name",
       "editMessage":"Please, enter the complete <b>name</b> of the classroom <b>$dbKeyFilter</b>:"},
@@ -60,6 +65,9 @@
    "dbKeyFilter":"username",
    "successMsg":"Your personal profile was successfully updated.",
    "failMsg":"Failed to update your personal profile. Try again or contact the Bot's admin.",
+   "prevMenuButton":[
+     {"button_label":"Choose a classroom to start", "actionFunction":"pickClassroom"}
+   ],
    "objects":[
      {"name":"name", "button_label":"First Name",
       "editMessage":"Got it! What's your <b>first name</b>?"},
@@ -107,7 +115,7 @@
    "attachments":{"userArrKey":"teachers", "userKey":"teacher", "refdbname":"references",
                   "objTxt":"class"},
    "prevMenuButton":[
-     {"button_label":"Files and links", "actionFunction":"listReferences2"},
+     {"button_label":"Files and links", "actionFunction":"listFiles"},
      {"button_label":"Delete this class", "actionFunction":"delItemArrCB"},
      {"button_label":"Classes menu", "actionCommand":"PCL"},
      {"button_label":"Classroom menu", "actionCommand":"PC"},
@@ -160,7 +168,7 @@
    "attachments":{"userArrKey":"teachers", "userKey":"teacher", "refdbname":"references",
                   "objTxt":"task"},
    "prevMenuButton":[
-     {"button_label":"Files and links", "actionFunction":"listReferences2"},
+     {"button_label":"Files and links", "actionFunction":"listFiles"},
      {"button_label":"Delete this task", "actionFunction":"delItemArrCB"},
      {"button_label":"Tasks menu", "actionCommand":"TSK"},
      {"button_label":"This classroom menu", "actionCommand":"PC"},
@@ -222,7 +230,7 @@
    "attachments":{"userArrKey":"students", "userKey":"student", "refdbname":"references",
                   "objTxt":"class"},
    "prevMenuButton":[
-     {"button_label":"Files and links", "actionFunction":"listReferences3"},
+     {"button_label":"Files and links", "actionFunction":"listFilesRO"},
      {"button_label":"Classes menu", "actionCommand":"PCLS"},
      {"button_label":"This Classroom menu", "actionCommand":"PCS"},
      {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
@@ -249,7 +257,7 @@
    "attachments":{"userArrKey":"students", "userKey":"student", "refdbname":"references",
                   "objTxt":"task"},
    "prevMenuButton":[
-     {"button_label":"Files and links", "actionFunction":"listReferences3"},
+     {"button_label":"Files and links", "actionFunction":"listFilesRO"},
      {"button_label":"Tasks menu", "actionCommand":"TSKS"},
      {"button_label":"This classroom menu", "actionCommand":"PCS"},
      {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
