@@ -4,6 +4,7 @@ config.json
 *bkp2
 githelp.txt
 data/*json
+tmp/*
 # Created by https://www.gitignore.io/api/node
 
 ### Node ###

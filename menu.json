@@ -31,14 +31,11 @@
    "command_title":"What do you want to do?",
    "menuItems":[
      {"button_label":"Classes", "actionCommand":"PCLS"},
-     {"button_label":"References", "actionCommand":"REFS"},
      {"button_label":"Tasks", "actionCommand":"TSKS"},
      {"button_label":"Pick another Classroom", "actionFunction":"pickClassroom"}
    ]
   },
-  {"maincmd":"/new3",
-   "permission":"teacher",
-   "command":"EC",
+  {"command":"EC",
    "command_title":"Edit Classroom <b>$dbKeyFilter</b> profile:",
    "dbname":"classrooms",
    "dbKeyFilter":"id",
@@ -57,9 +54,7 @@
       "editMessage":"Please, enter the <b>total number of hours</b> of the classroom <b>$dbKeyFilter</b>:"}
    ]
   },
-  {"maincmd":"/new3",
-   "permission":"student",
-   "command":"EP",
+  {"command":"EP",
    "command_title":"Edit your profile:",
    "dbname":"studentusers",
    "dbKeyFilter":"username",
@@ -73,13 +68,17 @@
      {"name":"phone", "button_label":"Phone number",
       "editMessage":"Thank you for sharing your contacts! What's your <b>Phone number</b>?"},
      {"name":"email", "button_label":"E-mail",
-      "editMessage":"And here we are again! Which <b>e-mail</b> we could use to contact you eventually"}
+      "editMessage":"And here we are again! Which <b>e-mail</b> we could use to contact you eventually"},
+     {"name":"cv", "button_label":"Curriculum Vitae", "isFileOrLink":true,
+      "editMessage":"Send us your <b>curriculum vitae</b>. It can be a document or a link to your CV, for instance your Lattes Curriculum URL Link"},
+     {"name":"picture", "button_label":"Picture", "isFileOrLink":true,
+      "editMessage":"Please, send your <b>picture</b> here."},
+     {"name":"pitch", "button_label":"video/audio pitch", "isFileOrLink":true,
+      "editMessage":"Please, send a short (1 minute at most) video or audio with your a <b>pitch</b> of yourself. Talk about your academic education and your main professional experiences"}
    ]
   },
-  {"maincmd":"/classes",
-   "permission":"teacher",
-   "command":"PCL",
-   "command_title":"Edit your Classes:",
+  {"command":"PCL",
+   "command_title":"Edit the <b>Classes</b> from classroom <b>$dbKeyFilter</b>:",
    "dbname":"classrooms",
    "objArray":"classes",
    "keysArray":["name","date","hours","start","place","description"],
@@ -87,30 +86,29 @@
    "dbKeyFilter":"id",
    "usernameKeyFilter":"teacher",
    "menuItems":[
-     {"button_label":"Add a new class", "actionFunction":"newItemArrCB",
+     {"button_label":"Add a new class", "actionFunction":"newItemArrCB", "callbackCMD":"ECL",
       "successMsg":"Yeah, we did it! Added <b>new class</b> into classroom <b>$dbKeyFilter</b>. Let's Configure it now?",
       "failMsg":"Sorry for that... Could not add <b>new class</b> into classroom <b>$dbKeyFilter</b>. Try again or contact the Admin"},
-     {"button_label":"Edit an existing class", "actionFunction":"getItemsArray", "callbackCMD":"ECL",
+     {"button_label":"Edit/del class", "actionFunction":"getItemsArray", "callbackCMD":"ECL",
       "actionTxt":"Here we go... Please, choose a <b>class</b> to edit it"},
-     {"button_label":"Delete an existing class", "actionFunction":"approveStd"},
-     {"button_label":"Back to the classroom menu", "actionCommand":"PC"},
+     {"button_label":"This classroom menu", "actionCommand":"PC"},
      {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
    ],
    "successMsg":"Your classes profile was successfully updated.",
    "failMsg":"Failed to update your classes profile. Try again or contact the Bot's admin."
   },
-  {"maincmd":"/new3",
-   "permission":"teacher",
-   "command":"ECL",
+  {"command":"ECL",
    "command_title":"Edit this <b>class</b> profile from classroom <b>$dbKeyFilter</b>:",
    "dbname":"classrooms",
    "dbKeyFilter":"id",
+   "usernameKeyFilter":"teacher",
    "objArray":"classes",
    "ArrayMainKey":"name",
    "attachments":{"userArrKey":"teachers", "userKey":"teacher", "refdbname":"references",
                   "objTxt":"class"},
    "prevMenuButton":[
      {"button_label":"Files and links", "actionFunction":"listReferences2"},
+     {"button_label":"Delete this class", "actionFunction":"delItemArrCB"},
      {"button_label":"Classes menu", "actionCommand":"PCL"},
      {"button_label":"Classroom menu", "actionCommand":"PC"},
      {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
@@ -132,10 +130,8 @@
       "editMessage":"Where does this class from classroom <b>$dbKeyFilter</b> takes place?"}
    ]
   },
-  {"maincmd":"/tasks",
-   "permission":"teacher",
-   "command":"TSK",
-   "command_title":"Edit the Tasks from your classroom",
+  {"command":"TSK",
+   "command_title":"Edit the <b>Tasks</b> from your classroom <b>$dbKeyFilter</b>:",
    "dbname":"classrooms",
    "objArray":"tasks",
    "keysArray":["title","deliver_date","description"],
@@ -147,27 +143,27 @@
       "successMsg":"You got it! <b>New task</b> successfully added into classroom $dbKeyFilter. Let's Configure it now?",
       "failMsg":"Sorry for that... <b>Could not</b> add new task into classroom $dbKeyFilter Try again or contact the Admin"},
      {"button_label":"Edit an existing task", "actionFunction":"getItemsArray", "callbackCMD":"ETSK",
-      "actionTxt":"Here we go... Please, choose a <b>class</b> to edit it"},
-     {"button_label":"Delete an existing task", "actionFunction":"approveStd"},
-     {"button_label":"Back to the classroom menu", "actionFunction":"pickClassroom"}
+      "actionTxt":"Here we go... Please, choose a <b>task</b> to edit it"},
+     {"button_label":"This classroom menu", "actionCommand":"PC"},
+     {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
    ],
    "successMsg":"Your tasks profile was successfully updated.",
    "failMsg":"Failed to update your tasks profile. Try again or contact the Bot's admin."
   },
-  {"maincmd":"/new3",
-   "permission":"teacher",
-   "command":"ETSK",
+  {"command":"ETSK",
    "command_title":"Edit this <b>task</b> profile from classroom <b>$dbKeyFilter</b>:",
    "dbname":"classrooms",
    "dbKeyFilter":"id",
+   "usernameKeyFilter":"teacher",
    "objArray":"tasks",
    "ArrayMainKey":"title",
    "attachments":{"userArrKey":"teachers", "userKey":"teacher", "refdbname":"references",
                   "objTxt":"task"},
    "prevMenuButton":[
-     {"button_label":"List files and links attached", "actionFunction":"listReferences2"},
-     {"button_label":"Back to the tasks menu", "actionCommand":"TSK"},
-     {"button_label":"Back to the classroom menu", "actionCommand":"PC"},
+     {"button_label":"Files and links", "actionFunction":"listReferences2"},
+     {"button_label":"Delete this task", "actionFunction":"delItemArrCB"},
+     {"button_label":"Tasks menu", "actionCommand":"TSK"},
+     {"button_label":"This classroom menu", "actionCommand":"PC"},
      {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
    ],
    "successMsg":"The profile of the TASK from classroom <b>$dbKeyFilter</b> was successfully updated.",
@@ -179,6 +175,91 @@
       "editMessage":"Please, enter the <b>Deliver date</b> of this <b>task</b> from classroom <b>$dbKeyFilter</b>. Use the format YYYY-MM-DD."},
      {"name":"description", "button_label":"Description",
       "editMessage":"Please, enter a <b>description</b> for this <b>task</b> from classroom <b>$dbKeyFilter</b>:"}
+   ]
+  },
+  {"command":"PCLS",
+   "command_title":"View the <b>classes</b> of the classroom <b>$dbKeyFilter</b>:",
+   "dbname":"classrooms",
+   "objArray":"classes",
+   "keysArray":["name","date","hours","start","place","description"],
+   "ArrayMainKey":"name",
+   "dbKeyFilter":"id",
+   "usernameKeyFilter":"student",
+   "menuItems":[
+     {"button_label":"View class", "actionFunction":"getItemsArray", "callbackCMD":"VCL",
+      "actionTxt":"Here we go... Please, choose a <b>class</b> to view it"},
+     {"button_label":"This classroom menu", "actionCommand":"PCS"},
+     {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
+   ],
+   "successMsg":"Your classes profile was successfully updated.",
+   "failMsg":"Failed to update your classes profile. Try again or contact the Bot's admin."
+  },
+  {"command":"TSKS",
+   "command_title":"View the <b>Tasks</b> of the classroom <b>$dbKeyFilter</b>:",
+   "dbname":"classrooms",
+   "objArray":"tasks",
+   "keysArray":["title","deliver_date","description"],
+   "ArrayMainKey":"title",
+   "dbKeyFilter":"id",
+   "usernameKeyFilter":"student",
+   "menuItems":[
+     {"button_label":"View task", "actionFunction":"getItemsArray", "callbackCMD":"VTSK",
+      "actionTxt":"Here we go... Please, choose a <b>task</b> to view it"},
+     {"button_label":"This classroom menu", "actionCommand":"PCS"},
+     {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
+   ],
+   "successMsg":"Your tasks profile was successfully updated.",
+   "failMsg":"Failed to update your tasks profile. Try again or contact the Bot's admin."
+  },
+  {"command":"VCL",
+   "command_title":"View this <b>class</b> profile from classroom <b>$dbKeyFilter</b>:",
+   "dbname":"classrooms",
+   "dbKeyFilter":"id",
+   "usernameKeyFilter":"student",
+   "objArray":"classes",
+   "ArrayMainKey":"name",
+   "readonly":"true",
+   "attachments":{"userArrKey":"students", "userKey":"student", "refdbname":"references",
+                  "objTxt":"class"},
+   "prevMenuButton":[
+     {"button_label":"Files and links", "actionFunction":"listReferences3"},
+     {"button_label":"Classes menu", "actionCommand":"PCLS"},
+     {"button_label":"This Classroom menu", "actionCommand":"PCS"},
+     {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
+   ],
+   "successMsg":"The profile of the Class from classroom <b>$dbKeyFilter</b> was successfully updated.",
+   "failMsg":"Failed to update class profile from classroom <b>$dbKeyFilter</b>.",
+   "objects":[
+     {"name":"name", "button_label":"Class name", "editMessage":""},
+     {"name":"date", "button_label":"Date (YYYY-MM-DD)", "editMessage":""},
+     {"name":"hours", "button_label":"Duration (HH:MM)", "editMessage":""},
+     {"name":"start", "button_label":"Starting time (HH:MM)", "editMessage":""},
+     {"name":"description", "button_label":"Description", "editMessage":""},
+     {"name":"place", "button_label":"Location", "editMessage":""}
+   ]
+  },
+  {"command":"VTSK",
+   "command_title":"View this <b>task</b> profile from classroom <b>$dbKeyFilter</b>:",
+   "dbname":"classrooms",
+   "dbKeyFilter":"id",
+   "usernameKeyFilter":"student",
+   "objArray":"tasks",
+   "ArrayMainKey":"title",
+   "readonly":"true",
+   "attachments":{"userArrKey":"students", "userKey":"student", "refdbname":"references",
+                  "objTxt":"task"},
+   "prevMenuButton":[
+     {"button_label":"Files and links", "actionFunction":"listReferences3"},
+     {"button_label":"Tasks menu", "actionCommand":"TSKS"},
+     {"button_label":"This classroom menu", "actionCommand":"PCS"},
+     {"button_label":"Pick another classroom", "actionFunction":"pickClassroom"}
+   ],
+   "successMsg":"The profile of the TASK from classroom <b>$dbKeyFilter</b> was successfully updated.",
+   "failMsg":"Failed to update TASK profile from classroom <b>$dbKeyFilter</b>.",
+   "objects":[
+     {"name":"title", "button_label":"Task Title", "editMessage":""},
+     {"name":"deliver_date", "button_label":"Deliver Date (YYYY-MM-DD)", "editMessage":""},
+     {"name":"description", "button_label":"Description", "editMessage":""}
    ]
   }
 ]
