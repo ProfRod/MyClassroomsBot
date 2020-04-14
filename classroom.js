@@ -613,27 +613,35 @@ function getMyClassrooms(msg){
 
   if( isteacherUser(msg.chat.username) )
   {
-    query = { teacher:msg.chat.username, status:"open" };
+    query = {teacher:msg.chat.username};
     classrooms = db.classrooms.find(query);
 
     if( classrooms.length )
     {
       classrooms.forEach(function(classroom){
-        if(classroom.teachers.length)
-          myclassrooms.push( {"role":"teacher", "id":classroom.id, "name":classroom.name} );
+        if(classroom.status == "open" && classroom.teachers.length){
+          classroom.teachers.forEach(function(teacher){
+            if(teacher.teacher == msg.chat.username && teacher.status == "member") 
+              myclassrooms.push( {"role":"teacher", "id":classroom.id, "name":classroom.name} );
+          });
+        }
       });
     }
   }
   if( isStudentUser(msg.chat.username) )
   {
-    query = { student:msg.chat.username, status:"open" }
+    query = {student:msg.chat.username}
     classrooms = db.classrooms.find(query);
 
     if( classrooms.length )
     {
       classrooms.forEach(function(classroom){
-        if(classroom.students.length)
-          myclassrooms.push( {"role":"student", "id":classroom.id, "name":classroom.name} );
+        if(classroom.status == "open" && classroom.students.length){
+          classroom.students.forEach(function(student){
+            if(student.student == msg.chat.username && student.status == "member") 
+              myclassrooms.push( {"role":"student", "id":classroom.id, "name":classroom.name} );
+          });
+        }
       });
     }
   }
@@ -800,6 +808,12 @@ bot.onText(/\/join$/, (msg, match) => {
     if (err)
       console.log("sendMessage error: " + err);
   });
+});
+
+
+bot.onText(/\/myprofile$/, (msg, match) => {
+  console.log('[' + new Date().toString() + '] Command /myprofile from username:@' + msg.chat.username);
+    exec_menu_cmd(msg, {c:"EP", i:msg.chat.username});
 });
 
 

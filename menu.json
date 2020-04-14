@@ -56,7 +56,7 @@
   },
   {"command":"EP",
    "command_title":"Edit your profile:",
-   "dbname":"studentusers",
+   "dbname":"users",
    "dbKeyFilter":"username",
    "successMsg":"Your personal profile was successfully updated.",
    "failMsg":"Failed to update your personal profile. Try again or contact the Bot's admin.",
